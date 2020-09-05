@@ -7,3 +7,15 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rand = "0.6"
+rand_pcg = "0.1"
+
+# cf. https://qiita.com/termoshtt/items/b3129c473b1becef5878
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "ppmpa_benchmark"
+harness = false
+
+
