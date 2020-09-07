@@ -17,7 +17,7 @@ pub enum PhotonFilter {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Radiance(Flt, Flt, Flt);
+pub struct Radiance(pub Flt, pub Flt, pub Flt);
 
 impl Add for Radiance {
   type Output = Self;
@@ -142,8 +142,17 @@ impl PhotonInfo {
       Wavelength::Blue  => Radiance(0.0, 0.0, pw2),
     }
   }
+
+  pub fn to_points(&self) -> [Flt; 3] {
+    self.1.v
+  }
 }
 
+/*
+pub fn read_map(nsample: i64, radius: Flt) -> (i64, PhotonMap) {
+  (1, PhotonMap {power: 1.0, nearest})
+}
+*/
 
 //
 // tests
@@ -183,6 +192,13 @@ mod tests {
     assert_eq!(rabs(-1.1), 1.1);
   }
 
+  #[test]
+  fn test_photon() {
+
+
+    let pi1 = PhotonInfo(Wavelength::Red, Vector3::new_pos(1.0, 2.0, 3.1), Vector3::new_dir(1.0, 1.0, 1.0).unwrap());
+    assert_eq!(pi1.to_points(), [1.0, 2.0, 3.1]);
+  }
 
 }
 

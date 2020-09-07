@@ -35,6 +35,7 @@ impl Ray {
 // ---------------------
 // shape
 
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Shape {
   Point {
     position: Position3,
@@ -155,6 +156,25 @@ pub fn specular_refraction(ior0: &Flt, ior1: &Flt, c0: &Flt, ed: &Direction3, n:
   }
 }
 
+pub fn method_moller(l: &Flt, p0: &Position3, d1: &Direction3, d2: &Direction3, p: &Position3, d: &Direction3) -> Option<(Flt, Flt, Flt)> {
+  let re2 = d.cross(d2);
+  let det_a = re2.dot(d1);
+  let pp = *p - *p0;
+  let te1 = pp.cross(d1);
+  let u = re2.dot(&pp) / det_a;
+  let v = te1.dot(d)  / det_a;
+  let t = te1.dot(d2) / det_a;
+  if det_a == 0.0 ||
+     u < 0.0 || u > 1.0 ||
+     v < 0.0 || v > 1.0 ||
+     u + v > *l {
+    None
+  } else {
+    Some((u, v, t))
+  }
+}
+
+
 // utility functions
 
 fn distance_plain(r: &Ray, n: &Direction3, d: &Flt) -> Vec<Flt> {
@@ -191,24 +211,6 @@ fn distance_polygon(l: &Flt, r: &Ray, p: &Position3, d1: &Direction3, d2: &Direc
   }
 }
 
-fn method_moller(l: &Flt, p0: &Position3, d1: &Direction3, d2: &Direction3, p: &Position3, d: &Direction3) -> Option<(Flt, Flt, Flt)> {
-  let re2 = d.cross(d2);
-  let det_a = re2.dot(d1);
-  let pp = *p - *p0;
-  let te1 = pp.cross(d1);
-  let u = re2.dot(&pp) / det_a;
-  let v = te1.dot(d)  / det_a;
-  let t = te1.dot(d2) / det_a;
-  if det_a == 0.0 ||
-     u < 0.0 || u > 1.0 ||
-     v < 0.0 || v > 1.0 ||
-     u + v > *l {
-    None
-  } else {
-    Some((u, v, t))
-  }
-}
-
 
 //----
 // tests
@@ -222,28 +224,28 @@ mod tests {
     let p1 = Position3::new_pos(1.0, 2.0, 3.0);
     let d1 = Direction3::new_dir(1.0, 1.0, 1.0);
     let r1 = Ray::new(&p1, &(d1.unwrap()));
-    assert_eq!(r1, Ray(Vector3(1.0, 2.0, 3.0), Vector3(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)));
+    assert_eq!(r1, Ray(Vector3::new(1.0, 2.0, 3.0), Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)));
   }
 
   #[test]
   fn test_target() {
     let r = Ray::new_from_elem(1.0, 1.0, 1.0, -1.0, -1.0, -1.0).unwrap();
-    assert_eq!(r.target(2.0), Vector3(-0.15470053837925168, -0.15470053837925168, -0.15470053837925168));
+    assert_eq!(r.target(2.0), Vector3::new(-0.15470053837925168, -0.15470053837925168, -0.15470053837925168));
   }
 
   #[test]
   fn test_getnormal() {
     let pl = Shape::Plain {nvec: Vector3::EY, dist: 1.0};
-    assert_eq!(pl.get_normal(&Vector3(0.0, 1.0, 0.0)), Some(Vector3(0.0, 1.0, 0.0)));
+    assert_eq!(pl.get_normal(&Vector3::new(0.0, 1.0, 0.0)), Some(Vector3::new(0.0, 1.0, 0.0)));
     let sp = Shape::Sphere {center: Vector3::O, radius: 2.0};
-    assert_eq!(sp.get_normal(&Vector3(2.0, 0.0, 0.0)), Some(Vector3(1.0, 0.0, 0.0)));
+    assert_eq!(sp.get_normal(&Vector3::new(2.0, 0.0, 0.0)), Some(Vector3::new(1.0, 0.0, 0.0)));
     let p = Vector3::O;
-    let p1 = Vector3(2.0, 1.0, 0.0);
-    let p2 = Vector3(0.0, 1.0, 2.0);
+    let p1 = Vector3::new(2.0, 1.0, 0.0);
+    let p2 = Vector3::new(0.0, 1.0, 2.0);
     let po = Shape::new_polygon(&p, &p1, &p2);
-    assert_eq!(po.get_normal(&Vector3(0.0, 1.0, 0.0)), Some(Vector3(0.4082482904638631, -0.8164965809277261, 0.4082482904638631)));
+    assert_eq!(po.get_normal(&Vector3::new(0.0, 1.0, 0.0)), Some(Vector3::new(0.4082482904638631, -0.8164965809277261, 0.4082482904638631)));
     let pa = Shape::new_parallelogram(&p, &p1, &p2);
-    assert_eq!(pa.get_normal(&Vector3(0.0, 1.0, 0.0)), Some(Vector3(0.4082482904638631, -0.8164965809277261, 0.4082482904638631)));
+    assert_eq!(pa.get_normal(&Vector3::new(0.0, 1.0, 0.0)), Some(Vector3::new(0.4082482904638631, -0.8164965809277261, 0.4082482904638631)));
   }
 
 

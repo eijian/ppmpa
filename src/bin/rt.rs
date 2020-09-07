@@ -5,8 +5,8 @@ use ppmpa::ray::algebra::*;
 use ppmpa::ray::physics::*;
 
 fn main() {
-  let v1 = Vector3(1.0, 2.0, 3.0);
-  let v2 = Vector3(3.0, 2.0, 1.0);
+  let v1 = Vector3::new(1.0, 2.0, 3.0);
+  let v2 = Vector3::new(3.0, 2.0, 1.0);
 
   println!("Hello, world!");
   println!("nearly = {}", NEARLY0);
@@ -35,7 +35,7 @@ fn main() {
   println!("d2={:?}", d2);
   let d3 = generate_random_dir();
   println!("d3={:?}", d3);
-  println!("d3.x={}", d3.0);
+  println!("d3.x={}", d3.v[0]);
 
 
 }

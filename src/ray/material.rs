@@ -6,16 +6,16 @@ use super::optics::*;
 
 type Flt = f64;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Material {
-  emittance: Radiance,
-  reflectance: Color,
-  transmittance: Color,
-  specular_refl: Color,
-  ior:           Color,
-  diffuseness:   Flt,
-  metalness:     Flt,
-  smoothness:    Flt,
+  pub emittance: Radiance,
+  pub reflectance: Color,
+  pub transmittance: Color,
+  pub specular_refl: Color,
+  pub ior:           Color,
+  pub diffuseness:   Flt,
+  pub metalness:     Flt,
+  pub smoothness:    Flt,
 }
 
 impl Material {
@@ -24,19 +24,25 @@ impl Material {
   }
 }
 
-/*
 #[cfg(test)]
-
-
 mod tests {
   use super::*;
 
   #[test]
   fn test_material() {
-    let mat = Material();
+    let mat = Material {
+      emittance: Radiance::RADIANCE0,
+      reflectance: Color(1.0, 0.7, 0.9),
+      transmittance: Color(0.0, 0.0, 0.0),
+      specular_refl: Color(0.1, 0.3, 0.5),
+      ior: Color(0.8, 0.2, 0.5),
+      diffuseness: 0.5,
+      metalness: 0.1,
+      smoothness: 0.2,
+    };
+    assert_eq!(mat.average_ior(), 0.5);
+    assert_eq!(mat.reflectance, Color(1.0, 0.7, 0.9));
   }
 
 }
-
-*/
 
