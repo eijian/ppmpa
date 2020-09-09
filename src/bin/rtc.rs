@@ -17,7 +17,7 @@ fn main() {
     //return Err(std::io::Error::new(ErrorKind::Other, USAGE));
     return;
   }
-  let scr = read_screen(args[0]);
+  let scr = read_screen(&args[0]);
   //let (lgts, objs) = read_scene(args[1]);
   let v1 = Vector3::new(1.0, 2.0, 3.0);
 
