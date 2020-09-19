@@ -71,7 +71,7 @@ impl Neg for Color {
   type Output = Self;
 
   fn neg(self) -> Self::Output {
-    Color(1.0 -self.0, 1.0 -self.1, 1.0 -self.2)
+    Color(1.0 - self.0, 1.0 - self.1, 1.0 - self.2)
   }
 
 }
@@ -89,6 +89,14 @@ impl Mul<Flt> for Color {
 
   fn mul(self, s: Flt) -> Self::Output {
     Color(self.0 * s, self.1 * s, self.2 * s)
+  }
+}
+
+impl Mul<Color> for Flt {
+  type Output = Color;
+
+  fn mul(self, col: Color) -> Self::Output {
+    Color(self * col.0, self * col.1, self * col.2)
   }
 }
 
@@ -117,6 +125,12 @@ fn check_under(ps: &[Flt], p: Flt) -> usize {
   }
   i
 }
+
+pub fn reflection_index(col: &Color, c: &Flt) -> Color {
+  let c2 = (1.0 - *c).powf(5.0);
+  Color(col.0 + (1.0 - col.0) * c2, col.1 + (1.0 - col.1) * c2, col.2 + (1.0 - col.2) * c2)
+}
+
 
 // TESTS
 

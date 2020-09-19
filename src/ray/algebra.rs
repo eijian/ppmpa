@@ -1,5 +1,6 @@
 // algebra module
 
+use core::num::ParseFloatError;
 use std::f64;
 use std::fmt;
 use std::ops::Neg;
@@ -7,14 +8,15 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::ops::Div;
+use std::str::*;
+
 use rand::Rng;
+use regex::Regex;
 
 use super::*;
 
 // 参考URLs
 // https://scrapbox.io/nwtgck/Rustの演算子のオーバーロードで借用してmoveさせないようにする方法_-_std::ops::AddとかMulとか
-
-//pub struct Vector3(pub Flt, pub Flt, pub Flt);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct Vector3 {
@@ -23,7 +25,26 @@ pub struct Vector3 {
 
 impl fmt::Display for Vector3 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "[{},{},{}]", self.v[0], self.v[1], self.v[2])
+    write!(f, "V3[{},{},{}]", self.v[0], self.v[1], self.v[2])
+  }
+}
+
+// 文字列->構造体変換：参考URLs
+// https://doc.rust-lang.org/std/str/trait.FromStr.html
+// https://qiita.com/scivola/items/60141f262caa53983c3a
+// https://text.baldanders.info/rust-lang/character-string-2/
+
+impl FromStr for Vector3 {
+  type Err = ParseFloatError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^V3\[(\S+?),(\S+?),(\S+?)\]$").unwrap();
+    let caps = re.captures(s).unwrap();
+    println!("C0:{}", &caps[1]);
+    let x = caps[1].parse::<Flt>()?;
+    let y = caps[2].parse::<Flt>()?;
+    let z = caps[3].parse::<Flt>()?;
+    Ok(Vector3::new(x, y, z))
   }
 }
 
@@ -194,7 +215,7 @@ mod tests {
   #[test]
   fn test_vector3() {
     let v0 = Vector3::new(1.0, 2.0, 3.0);
-    assert_eq!(format!("{}", v0), "[1,2,3]");
+    assert_eq!(format!("{}", v0), "V3[1,2,3]");
     let v1 = Vector3::new(1.0, 2.0, 3.0);
     assert_eq!(-v1, Vector3::new(-1.0, -2.0, -3.0));
     let v2 = Vector3::new(-1.0, 2.0, -3.0);
@@ -208,7 +229,12 @@ mod tests {
     assert_eq!(v1 + v2 - v2, Vector3::new(1.0, 2.0, 3.0));
 
     assert_eq!((v1 * 1.1).near(&Vector3::new(1.1, 2.2, 3.3)), true);
+    assert_eq!(format!("{}", v1 * 1.1), "V3[1.1,2.2,3.3000000000000003]");
     assert_eq!((2.2 * v1).near(&Vector3::new(2.2, 4.4, 6.6)), true);
+
+    let v4 = Vector3::from_str("V3[0.1,0.3,0.5]");
+    let v42 = v4.unwrap();
+    assert_eq!(v42, Vector3 {v: [0.1, 0.3, 0.5]});
   }
 }
 

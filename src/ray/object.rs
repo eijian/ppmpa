@@ -1,12 +1,12 @@
 // object
 
-use super::algebra::*;
+//use super::algebra::*;
 use super::geometry::*;
 use super::material::*;
-use super::optics::*;
-use super::physics::*;
+//use super::optics::*;
+//use super::physics::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Object {
   pub shape: Shape,
   pub material: Material,
@@ -29,6 +29,9 @@ impl Object {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use super::super::algebra::*;
+  use super::super::optics::*;
+  use super::super::physics::*;
 
   #[test]
   fn test_object() {

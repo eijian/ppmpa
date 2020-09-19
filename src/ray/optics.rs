@@ -1,5 +1,6 @@
 // optics
 
+use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
@@ -18,6 +19,13 @@ pub enum PhotonFilter {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Radiance(pub Flt, pub Flt, pub Flt);
+
+impl fmt::Display for Radiance {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "RAD[{},{},{}]", self.0, self.1, self.2)
+  }
+}
+
 
 impl Add for Radiance {
   type Output = Self;
@@ -42,6 +50,16 @@ impl Mul<Flt> for Radiance {
     Radiance(self.0 * s, self.1 * s, self.2 * s)
   }
 }
+
+impl Mul<Radiance> for Flt {
+  type Output = Radiance;
+
+  fn mul(self, rad: Radiance) -> Self::Output {
+    Radiance(self * rad.0, self * rad.1, self * rad.2)
+  }
+}
+
+
 
 impl BasicMatrix for Radiance {
   fn norm(&self) -> Flt {
@@ -183,6 +201,7 @@ mod tests {
     assert_eq!(r2.select_wavelength(Wavelength::Red), 1.0);
     assert_eq!(r2.select_wavelength(Wavelength::Green), 0.8);
     assert_eq!(r2.select_wavelength(Wavelength::Blue), 0.6);
+    assert_eq!(format!("{}", r2), "RAD[1,0.8,0.6]");
   }
 
   #[test]

@@ -83,6 +83,16 @@ impl Light {
       Light::PointLight {color:_, flux:_, pos}
         => vec![*pos - *p],
       Light::ParallelogramLight {color:_, flux:_, pos, nvec, dir1, dir2}
+        /* little faster
+        => {
+          let mut vs0: Vec<Direction3> = vec![];
+          for (tx, ty) in &TSS {
+            let v = gen_pos(pos, dir1, dir2, tx, ty) - *p;
+            if nvec.dot(&v) < 0.0 { vs0.push(v); }
+          }
+          vs0
+        }
+        */
         => TSS.iter()
               .map(|(tx, ty)| gen_pos(pos, dir1, dir2, tx, ty) - *p)
               .filter(|d| nvec.dot(d) < 0.0).collect::<Vec<Direction3>>(),

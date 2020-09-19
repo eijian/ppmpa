@@ -11,6 +11,14 @@ use super::ray::optics::*;
 
 pub struct Rgb(i32, i32, i32);
 
+/*
+impl fmt::Display for Rgb {
+  fn fmt(&self.f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{} {} {}", self.0, self.1, self.2)
+  }
+}
+*/
+
 pub struct Screen {
   pub nphoton: i32,
   pub progressive: bool,
@@ -41,38 +49,38 @@ pub const RGBMAX: Flt = 255.0;
 //const DEFCONF: HashMap = HashMap
 
 impl Screen {
-  pub fn generate_ray(scr: &Screen, (y, x): &(Flt, Flt)) -> Ray {
+  pub fn generate_ray(&self, (y, x): &(Flt, Flt)) -> Ray {
     let mut rng = rand::thread_rng();
-    let blur_offset = if scr.blur == true {
+    let blur_offset = if self.blur == true {
       let r1: Flt = rng.gen_range(-0.5, 0.5);
       let r2: Flt = rng.gen_range(-0.5, 0.5);
-      r1 * scr.eex + r2 * scr.eey
+      r1 * self.eex + r2 * self.eey
     } else {
       Vector3::O
     };
-    let (r3, r4) = if scr.progressive == true && scr.antialias == true {
+    let (r3, r4) = if self.progressive == true && self.antialias == true {
       (rng.gen_range(-0.5, 0.5), rng.gen_range(-0.5, 0.5))
     } else {
       (0.0, 0.0)
     };
-    let eyepos = scr.eye_pos + blur_offset;
-    let eyedir = scr.origin + (x + r3) * scr.esx + (y + r4) * scr.esy - blur_offset;
+    let eyepos = self.eye_pos + blur_offset;
+    let eyedir = self.origin + (x + r3) * self.esx + (y + r4) * self.esy - blur_offset;
     Ray::new(&eyepos, &eyedir.normalize().unwrap())
   }
   
-  pub fn pnm_header(scr: &Screen) -> Vec<String> {
+  pub fn pnm_header(&self) -> Vec<String> {
     vec![
       "P3".to_string(),
-      format!("## max radiance = {}", scr.max_radiance),
-      format!("{} {}", scr.xreso, scr.yreso),
+      format!("## max radiance = {}", self.max_radiance),
+      format!("{} {}", self.xreso, self.yreso),
       "255".to_string(),
     ]
   }
   
-  pub fn radiance_to_rgb(scr: &Screen, maxrad: &Flt, r: &Radiance) -> Rgb {
+  pub fn radiance_to_rgb(&self, r: &Radiance) -> Rgb {
     let clip = |d: Flt| {
   //  let clip = |c: &Flt, d: &Flt| {
-      let d2 = d / scr.max_radiance;
+      let d2 = d / self.max_radiance;
       let r2 = if d2 > 1.0 { 1.0 } else { d2 };
       f64::floor(r2.powf(GAMMA) * RGBMAX) as i32
     };
@@ -91,7 +99,7 @@ pub fn read_screen(file: &str) -> Screen {
   let xreso = 256;
   let yreso = 256;
   let aa_flag = true;
-  let prog_flag = true;
+  let prog_flag = false;
   let blur_flag = false;
 
   let _ez = (target - eyepos).normalize().unwrap();
@@ -110,8 +118,8 @@ pub fn read_screen(file: &str) -> Screen {
   let orig = focus * _ez - (_lx - 0.5) * esx - (_ly - 0.5) * esy;
 
   let mut smap: Vec<(Flt, Flt)> = vec![];
-  for y in 0..(yreso - 1) {
-    for x in 0..(xreso - 1) {
+  for y in 0..yreso {
+    for x in 0..xreso {
       smap.push((y as Flt, x as Flt));
     }
   }
@@ -126,7 +134,7 @@ pub fn read_screen(file: &str) -> Screen {
     use_classic_for_direct: true,
     radius: 0.2,
     pfilter: PhotonFilter::Gauss,
-    ambient: Radiance(0.001, 0.001, 0.001),
+    ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001),
     max_radiance: 0.01,
     eye_pos: eyepos,
     eye_dir: (target - eyepos).normalize().unwrap(),    
@@ -147,7 +155,7 @@ pub fn rgb_to_string(c: &Rgb) -> String {
 }
 
 pub fn radiance_to_string(r: &Radiance) -> String {
-  format!("{} {} {}", r.0, r.1, r.2)
+  format!("{:e} {:e} {:e}", r.0, r.1, r.2)
 }
 
 pub fn rgb_to_radiance(scr: &Screen, c: &Rgb) -> Radiance {
