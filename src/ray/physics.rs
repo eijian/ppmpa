@@ -1,10 +1,14 @@
 /// physics
 
+use core::num::ParseFloatError;
 use std::fmt;
 use std::ops::Neg;
 use std::ops::Add;
 use std::ops::Mul;
+use std::str::*;
+
 use rand::Rng;
+use regex::Regex;
 
 use super::*;
 
@@ -23,8 +27,8 @@ impl Color {
   pub const WHITE: Color = Color(1.0, 1.0, 1.0);
 
   pub fn new(r: Flt, g: Flt, b: Flt) -> Color {
-    let c = Color(r, g, b);
-    c.normalize()
+    // normalize() は明示的に実行する
+    Color(r, g, b)
   }
 
   pub fn normalize(&self) -> Self {
@@ -63,7 +67,20 @@ impl Color {
 
 impl fmt::Display for Color {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "[{},{},{}]", self.0, self.1, self.2)
+    write!(f, "COL[{},{},{}]", self.0, self.1, self.2)
+  }
+}
+
+impl FromStr for Color {
+  type Err = ParseFloatError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^COL\[(\S+?),(\S+?),(\S+?)\]$").unwrap();
+    let caps = re.captures(s).unwrap();
+    let r = caps[1].parse::<Flt>()?;
+    let g = caps[2].parse::<Flt>()?;
+    let b = caps[3].parse::<Flt>()?;
+    Ok(Color::new(r, g, b))
   }
 }
 
@@ -148,14 +165,14 @@ mod tests {
   #[test]
   fn test_color() {
     let c1 = Color(0.4, 0.78, 1.0);
-    assert_eq!(format!("{}", c1), "[0.4,0.78,1]");
+    assert_eq!(format!("{}", c1), "COL[0.4,0.78,1]");
     let c2 = -c1;
     assert!((c2.0 - 0.6).abs()  < 0.00001);
     assert!((c2.1 - 0.22).abs() < 0.00001);
     assert!((c2.2 - 0.0).abs()  < 0.00001);
     let c3 = c1.normalize();
     assert_eq!(c3.0 + c3.1 + c3.2, 1.0);
-    assert_eq!(Color::new(0.4, 0.78, 1.0), c3);
+    assert_eq!(c3, Color::new(0.1834862385321101, 0.35779816513761464, 0.4587155963302752));
     assert_eq!(c3.decide_wavelength(0.1), Wavelength::Red);
     assert_eq!(c3.decide_wavelength(0.3), Wavelength::Green);
     assert_eq!(c3.decide_wavelength(0.7), Wavelength::Blue);
@@ -167,6 +184,18 @@ mod tests {
     let c5 = Color(0.2, 0.3, 0.8);
     assert_eq!(c4 + c5, Color(1.0, 0.8, 1.1));
     assert_eq!(c5 * 2.0, Color(0.4, 0.6, 1.6));
+
+    let c6 = Color::from_str("COL[0.4,0.5,0.1]");
+    let c62 = c6.unwrap();
+    assert_eq!(c62, Color(0.4,0.5,0.1));
+    let c7 = Color::from_str("COL[0.8,1.0,0.2]");
+    let c72 = c7.unwrap();
+    assert_eq!(c72, Color(0.8,1.0,0.2));
+
+    let c8 = Color::from_str(&format!("{}", c5));
+    assert_eq!(c8.unwrap(), Color(0.2,0.3,0.8));
+
+
   }
 
   #[test]
@@ -177,7 +206,7 @@ mod tests {
     assert_eq!(check_under(&ps, 0.28), 2);
     assert_eq!(check_under(&ps, 0.4 ), 3);
     assert_eq!(check_under(&ps, 0.64), 4);
-    assert_eq!(check_under(&ps, 0.99), 5);
+    assert_eq!(check_under(&ps, 0.99), 5);    
   }
 
 }

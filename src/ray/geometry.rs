@@ -9,11 +9,14 @@ use super::algebra::*;
 // Ray
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Ray(pub Position3, pub Direction3);
+pub struct Ray {
+  pub pos: Position3,
+  pub dir: Direction3,
+}
 
 impl Ray {
   pub fn new(p: &Position3, d: &Direction3) -> Ray {
-    Ray(*p, *d)
+    Ray {pos: *p, dir: *d}
   }
 
   pub fn new_from_elem(px: Flt, py: Flt, pz: Flt, dx: Flt, dy: Flt, dz: Flt) -> Option<Ray> {
@@ -27,7 +30,7 @@ impl Ray {
   }
 
   pub fn target(&self, t: Flt) -> Position3 {
-    self.0 + self.1 * t
+    self.pos + self.dir * t
   }
 }
 
@@ -178,17 +181,17 @@ pub fn method_moller(l: &Flt, p0: &Position3, d1: &Direction3, d2: &Direction3, 
 // utility functions
 
 fn distance_plain(r: &Ray, n: &Direction3, d: &Flt) -> Vec<Flt> {
-  let cos0 = n.dot(&r.1);
+  let cos0 = n.dot(&r.dir);
   if cos0 == 0.0 {
     vec![]
   } else {
-    vec![(*d + n.dot(&r.0)) / -cos0]
+    vec![(*d + n.dot(&r.pos)) / -cos0]
   }
 }
 
 fn distance_sphere(r: &Ray, c: &Position3, rad: &Flt) -> Vec<Flt> {
-  let o = *c - r.0;
-  let t0 = o.dot(&r.1);
+  let o = *c - r.pos;
+  let t0 = o.dot(&r.dir);
   let t1 = rad * rad - (o.square() - (t0 * t0));
   let t2 = f64::sqrt(t1);
   if t1 <= 0.0 {
@@ -203,7 +206,7 @@ fn distance_sphere(r: &Ray, c: &Position3, rad: &Flt) -> Vec<Flt> {
 }
 
 fn distance_polygon(l: &Flt, r: &Ray, p: &Position3, d1: &Direction3, d2: &Direction3) -> Vec<Flt> {
-  let res = method_moller(l, p, d1, d2, &r.0, &r.1);
+  let res = method_moller(l, p, d1, d2, &r.pos, &r.dir);
   if res == None {
     vec![]
   } else {
@@ -224,7 +227,7 @@ mod tests {
     let p1 = Position3::new_pos(1.0, 2.0, 3.0);
     let d1 = Direction3::new_dir(1.0, 1.0, 1.0);
     let r1 = Ray::new(&p1, &(d1.unwrap()));
-    assert_eq!(r1, Ray(Vector3::new(1.0, 2.0, 3.0), Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)));
+    assert_eq!(r1, Ray::new(&Vector3::new(1.0, 2.0, 3.0), &Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)));
   }
 
   #[test]

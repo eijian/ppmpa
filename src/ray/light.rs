@@ -55,7 +55,7 @@ impl Light {
   pub fn generate_photon(&self) -> Photon {
     match self {
       Light::PointLight {color, flux:_, pos}
-        => Photon(select_wavelength(color), Ray::new(pos, &generate_random_dir())),
+        => Photon::new(&select_wavelength(color), &Ray::new(pos, &generate_random_dir())),
       Light::ParallelogramLight {color, flux:_, pos, nvec, dir1, dir2}
         => {
           let w = select_wavelength(color);
@@ -64,7 +64,7 @@ impl Light {
           let t2 = rng.gen_range(0.0, 1.0);
           let d = diffuse_reflection(nvec);
           let r = Ray::new(&(*pos + t1 * *dir1 + t2 * *dir2), &d);
-          Photon(w, r)
+          Photon::new(&w, &r)
         },
       Light::SunLight {color, flux:_, pos, nvec:_, dir1, dir2, dir}
         => {
@@ -73,7 +73,7 @@ impl Light {
           let t1 = rng.gen_range(0.0, 1.0);
           let t2 = rng.gen_range(0.0, 1.0);
           let r = Ray::new(&(*pos + t1 * *dir1 + t2 * *dir2), dir);
-          Photon(w, r)
+          Photon::new(&w, &r)
         }
     }
   }

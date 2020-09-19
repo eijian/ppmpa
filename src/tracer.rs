@@ -26,7 +26,7 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
     return vec![]
   }
   
-  let is = calc_intersection(&ph.1, objs);
+  let is = calc_intersection(&ph.ray, objs);
   let is2 = is.unwrap();
   let Intersection(p, n, m) = is2;
   let d = m.diffuseness;
@@ -37,30 +37,30 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
     reflect_spec(uc, m0, objs, l, ph, &is2)
   };
   if (*uc == false || l > 0) && d > 0.0 {
-    pcs.push(Photon(ph.0, Ray::new(&p, &ph.1.1)));
+    pcs.push(Photon::new(&ph.wl, &Ray::new(&p, &ph.ray.dir)));
   }
   pcs
 }
 
 fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
-  let i = russian_roulette(&[is.2.reflectance.select_wavelength(ph.0)]);
+  let i = russian_roulette(&[is.2.reflectance.select_wavelength(ph.wl)]);
   if i > 0 {
     let dr = diffuse_reflection(&is.1);
-    trace_photon(uc, m0, objs, l+1, &Photon(ph.0, Ray::new(&is.0, &dr)))
+    trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.0, &dr)))
   } else{
     vec![]
   }
 }
 
 fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
-  let f0 = is.2.specular_refl.select_wavelength(ph.0);
-  let (rdir, cos0) = specular_reflection(&is.1, &ph.1.1);
+  let f0 = is.2.specular_refl.select_wavelength(ph.wl);
+  let (rdir, cos0) = specular_reflection(&is.1, &ph.ray.dir);
   let f = f0 + (1.0 - f0) * (1.0 - cos0).powf(5.0);
   let j = russian_roulette(&[f]);
   if j > 0 {
-    trace_photon(uc, m0, objs, l+1, &Photon(ph.0, Ray::new(&is.0, &rdir)))
+    trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.0, &rdir)))
   } else {
-    if is.2.ior.select_wavelength(ph.0) == 0.0 {
+    if is.2.ior.select_wavelength(ph.wl) == 0.0 {
       vec![]
     } else {
       reflect_trans(uc, m0, objs, l, ph, is, &cos0)
@@ -69,15 +69,15 @@ fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
 }
 
 fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, c0: &Flt) -> Vec<PhotonCache> {
-  let ior0 = m0.ior.select_wavelength(ph.0);
-  let ior1 = is.2.ior.select_wavelength(ph.0);
-  let (tdir, ior2) = specular_refraction(&ior0, &ior1, c0, &ph.1.1, &is.1);
+  let ior0 = m0.ior.select_wavelength(ph.wl);
+  let ior1 = is.2.ior.select_wavelength(ph.wl);
+  let (tdir, ior2) = specular_refraction(&ior0, &ior1, c0, &ph.ray.dir, &is.1);
   let m02 = if tdir.dot(&is.1) < 0.0 {
     is.2
   } else {
     M_AIR
   };
-  trace_photon(uc, &m02, objs, l+1, &Photon(ph.0, Ray::new(&is.0, &tdir)))
+  trace_photon(uc, &m02, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.0, &tdir)))
 }
 
 // Photon mapping method
@@ -102,7 +102,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
     Radiance::RADIANCE0
   };
   let ii = estimate_radiance(&scr, &pmap, &p, &n, &m);
-  let (rdir, cos0) = specular_reflection(&n, &r.1);
+  let (rdir, cos0) = specular_reflection(&n, &r.dir);
   let df = m.diffuseness;
   let mt = m.metalness;
   let f = reflection_index(&m.specular_refl, &cos0);
@@ -147,7 +147,7 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
     rad_diff = rad_diff + d;
   }
   let ii = Radiance::RADIANCE0;
-  let (rdir, cos0) = specular_reflection(&n, &r.1);
+  let (rdir, cos0) = specular_reflection(&n, &r.dir);
   let df = m.diffuseness;
   let mt = m.metalness;
   let f = reflection_index(&m.specular_refl, &cos0);
@@ -163,7 +163,7 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
     Radiance::RADIANCE0
   } else {
     let ior0 = m0.average_ior();
-    let (tdir, ior2) = specular_refraction(&ior0, &ior1, &cos0, &r.1, &n);
+    let (tdir, ior2) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &n);
     let m02 = if tdir.dot(&n) < 0.0 { m } else { M_AIR };
     trace_ray_classic(scr, &m02, l+1, objs, lgts, &Ray::new(&p, &tdir))
   };

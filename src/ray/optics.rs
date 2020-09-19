@@ -109,29 +109,36 @@ fn rabs(d: Flt) -> Flt {
 // --------------------------
 
 #[derive(Debug)]
-pub struct Photon(pub Wavelength, pub Ray);
+pub struct Photon {
+  pub wl: Wavelength,
+  pub ray: Ray,
+}
 
 impl Photon {
-  pub fn new(wl: &Wavelength, r: &Ray) -> Self {
-    Photon(*wl, *r)
+  pub fn new(wl: &Wavelength, ray: &Ray) -> Self {
+    Photon {wl: *wl, ray: *ray}
   }
 }
 
 pub type PhotonCache = Photon;
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct PhotonInfo {
+  pub wl: Wavelength,
+  pub pos: Position3,
+  pub dir: Direction3,
+}
+
 impl PhotonCache {
   pub fn to_info(&self) -> PhotonInfo {
-    PhotonInfo(self.0, self.1.0, -self.1.1)
+    PhotonInfo {wl: self.wl, pos: self.ray.pos, dir: -self.ray.dir}
   }
 }
 
 pub fn square_distance(pi1: &PhotonInfo, pi2: &PhotonInfo) -> Flt {
-  let d = pi1.1 - pi2.1;
+  let d = pi1.pos - pi2.pos;
   d.square()
 }
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct PhotonInfo(pub Wavelength, pub Position3, pub Direction3);
 
 pub struct PhotonMap {
   power:    Flt,
@@ -141,20 +148,22 @@ pub struct PhotonMap {
 
 impl PhotonInfo {
   pub fn dummy(p: &Position3) -> PhotonInfo {
-    PhotonInfo(Wavelength::Red, *p, Vector3::EX)
+    PhotonInfo {wl: Wavelength::Red, pos: *p, dir: Vector3::EX}
   }
 
+  /*
   pub fn pos(&self) -> Position3 {
     self.1
   }
   pub fn dir(&self) -> Direction3 {
     self.2
   }
+  */
 
   pub fn to_radiance(&self, n: &Direction3, pw: &Flt) -> Radiance {
-    let cos0 = n.dot(&self.2);
+    let cos0 = n.dot(&self.dir);
     let pw2 = if cos0 > 0.0 { pw * cos0 } else { 0.0 };
-    match self.0 {
+    match self.wl {
       Wavelength::Red   => Radiance(pw2, 0.0, 0.0),
       Wavelength::Green => Radiance(0.0, pw2, 0.0),
       Wavelength::Blue  => Radiance(0.0, 0.0, pw2),
@@ -162,7 +171,7 @@ impl PhotonInfo {
   }
 
   pub fn to_points(&self) -> [Flt; 3] {
-    self.1.v
+    self.pos.v
   }
 }
 
@@ -215,7 +224,7 @@ mod tests {
   fn test_photon() {
 
 
-    let pi1 = PhotonInfo(Wavelength::Red, Vector3::new_pos(1.0, 2.0, 3.1), Vector3::new_dir(1.0, 1.0, 1.0).unwrap());
+    let pi1 = PhotonInfo {wl: Wavelength::Red, pos: Vector3::new_pos(1.0, 2.0, 3.1), dir: Vector3::new_dir(1.0, 1.0, 1.0).unwrap()};
     assert_eq!(pi1.to_points(), [1.0, 2.0, 3.1]);
   }
 
