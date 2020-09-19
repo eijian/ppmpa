@@ -1,9 +1,13 @@
 // optics
 
+use core::num::ParseFloatError;
 use std::fmt;
 use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
+use std::str::*;
+
+use regex::Regex;
 
 use super::*;
 use super::algebra::*;
@@ -26,6 +30,18 @@ impl fmt::Display for Radiance {
   }
 }
 
+impl FromStr for Radiance {
+  type Err = ParseFloatError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^RAD\[(\S+?),(\S+?),(\S+?)\]$").unwrap();
+    let caps = re.captures(s).unwrap();
+    let r = caps[1].parse::<Flt>()?;
+    let g = caps[2].parse::<Flt>()?;
+    let b = caps[3].parse::<Flt>()?;
+    Ok(Radiance(r, g, b))
+  }
+}
 
 impl Add for Radiance {
   type Output = Self;
@@ -90,6 +106,18 @@ impl Radiance {
       Wavelength::Green => self.1,
       Wavelength::Blue  => self.2,
     }
+  }
+
+  pub fn r(&self) -> Flt {
+    self.0
+  }
+
+  pub fn g(&self) -> Flt {
+    self.1
+  }
+
+  pub fn b(&self) -> Flt {
+    self.2
   }
 }
 
@@ -211,6 +239,8 @@ mod tests {
     assert_eq!(r2.select_wavelength(Wavelength::Green), 0.8);
     assert_eq!(r2.select_wavelength(Wavelength::Blue), 0.6);
     assert_eq!(format!("{}", r2), "RAD[1,0.8,0.6]");
+    let r3 = Radiance::from_str(&format!("{}", r2));
+    assert_eq!(r3.unwrap(), r2);
   }
 
   #[test]
