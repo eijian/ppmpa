@@ -1,6 +1,12 @@
 // geometry
 
+use core::num::ParseFloatError;
 use std::f64;
+use std::fmt;
+use std::str::*;
+
+use regex::Regex;
+
 use super::*;
 use super::algebra::*;
 
@@ -12,6 +18,24 @@ use super::algebra::*;
 pub struct Ray {
   pub pos: Position3,
   pub dir: Direction3,
+}
+
+impl fmt::Display for Ray {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "RAY[{},{}]", self.pos, self.dir)
+  }
+}
+
+impl FromStr for Ray {
+  type Err = ParseFloatError;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^RAY\[(V3\[\S+\]),(V3\[\S+\])\]$").unwrap();
+    let caps = re.captures(s).unwrap();
+    let p = caps[1].parse::<Vector3>()?;
+    let d = caps[2].parse::<Vector3>()?;
+    Ok(Ray::new(&p, &d))
+  }
 }
 
 impl Ray {
@@ -228,6 +252,10 @@ mod tests {
     let d1 = Direction3::new_dir(1.0, 1.0, 1.0);
     let r1 = Ray::new(&p1, &(d1.unwrap()));
     assert_eq!(r1, Ray::new(&Vector3::new(1.0, 2.0, 3.0), &Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)));
+    assert_eq!(format!("{}", r1), "RAY[V3[1,2,3],V3[0.5773502691896258,0.5773502691896258,0.5773502691896258]]");
+    let r2 = Ray::from_str("RAY[V3[0.5,1.2,0.1],V3[-1.0,1.0,2.5]]");
+    let r22 = r2.unwrap();
+    assert_eq!(r22, Ray {pos: Vector3 {v: [0.5, 1.2, 0.1]}, dir: Vector3 {v: [-1.0, 1.0, 2.5]}});
   }
 
   #[test]

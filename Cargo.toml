@@ -10,6 +10,7 @@ edition = "2018"
 rand = "0.6"
 rand_pcg = "0.1"
 regex = "0.1"
+kdtree = "0.5.1"
 
 # cf. https://qiita.com/termoshtt/items/b3129c473b1becef5878
 [dev-dependencies]

@@ -24,7 +24,7 @@ pub fn read_scene(file: &str) -> (Vec<Light>, Vec<Object>) {
 
   // light
   let l1 = Light::ParallelogramLight {
-    color: Color(1.0, 1.0, 1.0),
+    color: Color(1.0, 1.0, 1.0).normalize(),
     flux: 5.0,
     pos: Vector3::new(-0.67, 3.99, 2.33),
     nvec: -Vector3::EY,

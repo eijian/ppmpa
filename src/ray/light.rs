@@ -52,6 +52,17 @@ impl fmt::Display for Light {
 }
 
 impl Light {
+  pub fn flux(&self) -> Flt {
+    match self {
+      Light::PointLight {color, flux, pos}
+        => *flux,
+      Light::ParallelogramLight {color, flux, pos, nvec, dir1, dir2}
+        => *flux,
+      Light::SunLight {color, flux, pos, nvec, dir1, dir2, dir}
+        => *flux,
+    }
+  }
+
   pub fn generate_photon(&self) -> Photon {
     match self {
       Light::PointLight {color, flux:_, pos}

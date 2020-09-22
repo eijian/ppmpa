@@ -125,7 +125,7 @@ pub fn read_screen(file: &str) -> Screen {
   }
 
   let scr = Screen {
-    nphoton: 10000,
+    nphoton: 1000000,
     progressive: prog_flag,
     xreso: xreso,
     yreso: yreso,
@@ -134,7 +134,7 @@ pub fn read_screen(file: &str) -> Screen {
     use_classic_for_direct: true,
     radius: 0.2,
     pfilter: PhotonFilter::Gauss,
-    ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001),
+    ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001), //
     max_radiance: 0.01,
     eye_pos: eyepos,
     eye_dir: (target - eyepos).normalize().unwrap(),    

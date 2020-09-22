@@ -40,7 +40,6 @@ impl FromStr for Vector3 {
   fn from_str(s: &str) -> Result<Self, Self::Err> {
     let re = Regex::new(r"^V3\[(\S+?),(\S+?),(\S+?)\]$").unwrap();
     let caps = re.captures(s).unwrap();
-    println!("C0:{}", &caps[1]);
     let x = caps[1].parse::<Flt>()?;
     let y = caps[2].parse::<Flt>()?;
     let z = caps[3].parse::<Flt>()?;

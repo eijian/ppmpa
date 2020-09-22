@@ -70,7 +70,7 @@ fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
 fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, c0: &Flt) -> Vec<PhotonCache> {
   let ior0 = m0.ior.select_wavelength(ph.wl);
   let ior1 = is.mate.ior.select_wavelength(ph.wl);
-  let (tdir, ior2) = specular_refraction(&ior0, &ior1, c0, &ph.ray.dir, &is.nvec);
+  let (tdir, _) = specular_refraction(&ior0, &ior1, c0, &ph.ray.dir, &is.nvec);
   let m02 = if tdir.dot(&is.nvec) < 0.0 {
     is.mate
   } else {
@@ -145,7 +145,7 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
   for d in diffs {
     rad_diff = rad_diff + d;
   }
-  let ii = Radiance::RADIANCE0;
+  //let ii = Radiance::RADIANCE0;
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
   let df = is1.mate.diffuseness;
   let mt = is1.mate.metalness;
@@ -162,7 +162,7 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
     Radiance::RADIANCE0
   } else {
     let ior0 = m0.average_ior();
-    let (tdir, ior2) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
+    let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
     let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
     trace_ray_classic(scr, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
