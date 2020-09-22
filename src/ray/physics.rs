@@ -19,6 +19,32 @@ pub enum Wavelength {
   Blue
 }
 
+impl fmt::Display for Wavelength {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let swl = match self {
+      Wavelength::Red   => "Red",
+      Wavelength::Green => "Green",
+      Wavelength::Blue  => "Blue",
+    };
+    write!(f, "WL:{}", swl)
+  }
+}
+
+impl FromStr for Wavelength {
+  type Err = String;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^WL:(\S+?)$").unwrap();
+    let caps = re.captures(s).unwrap();
+    match &caps[1] {
+      "Red"   => Ok(Wavelength::Red),
+      "Green" => Ok(Wavelength::Green),
+      "Blue"  => Ok(Wavelength::Blue),
+      _       => Err(format!("invalid wavelength: {}", s)),
+    }
+  }
+}
+
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Color(pub Flt, pub Flt, pub Flt);
 
@@ -159,6 +185,20 @@ mod tests {
   fn test_wl() {
     let r = Wavelength::Red;
     assert_eq!(r, Wavelength::Red);
+    assert_eq!(format!("{}", Wavelength::Red), "WL:Red");
+    assert_eq!(format!("{}", Wavelength::Green), "WL:Green");
+    assert_eq!(format!("{}", Wavelength::Blue), "WL:Blue");
+    let sr = "WL:Red";
+    assert_eq!(Wavelength::from_str(sr).unwrap(), Wavelength::Red);
+    let sg = "WL:Green";
+    assert_eq!(Wavelength::from_str(sg).unwrap(), Wavelength::Green);
+    let sb = "WL:Blue";
+    assert_eq!(Wavelength::from_str(sb).unwrap(), Wavelength::Blue);
+    let sx = "WL:aaa";
+    match Wavelength::from_str(sx) {
+      Ok(_) => assert!(false, format!("Str '{}' is invalid, but test is through!", sx)),
+      Err(e) => assert_eq!(e, "invalid wavelength: WL:aaa"),
+    }
 
   }
 

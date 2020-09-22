@@ -6,6 +6,7 @@ use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::str::*;
+//use std::string::*;
 
 use regex::Regex;
 
@@ -136,10 +137,31 @@ fn rabs(d: Flt) -> Flt {
 // photon
 // --------------------------
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Photon {
   pub wl: Wavelength,
   pub ray: Ray,
+}
+
+impl fmt::Display for Photon {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "PHOTON[{},{}]", self.wl, self.ray)
+  }
+}
+
+impl FromStr for Photon {
+  type Err = String;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^PHOTON\[(WL:\S+),(RAY\[\S+\])\]$").unwrap();
+    let caps = re.captures(s).unwrap();
+    let wl = caps[1].parse::<Wavelength>()?;
+    let r  = caps[2].parse::<Ray>();
+    match r {
+      Ok(r2) => Ok(Photon::new(&wl, &r2)),
+      Err(e) => Err(format!("invalid ray data: {}", &caps[2])),
+    }
+  }
 }
 
 impl Photon {
@@ -252,10 +274,14 @@ mod tests {
 
   #[test]
   fn test_photon() {
-
-
     let pi1 = PhotonInfo {wl: Wavelength::Red, pos: Vector3::new_pos(1.0, 2.0, 3.1), dir: Vector3::new_dir(1.0, 1.0, 1.0).unwrap()};
     assert_eq!(pi1.to_points(), [1.0, 2.0, 3.1]);
+    let r = Ray::new(&Vector3::new(5.5, 4.4, 3.3), &Vector3::EY);
+    let ph1 = Photon {wl: Wavelength::Blue, ray: r};
+    assert_eq!(format!("{}", ph1), "PHOTON[WL:Blue,RAY[V3[5.5,4.4,3.3],V3[0,1,0]]]");
+    let sph = "PHOTON[WL:Blue,RAY[V3[5.5,4.4,3.3],V3[0,0,1]]]";
+    let ph2 = Photon::from_str(sph);
+    assert_eq!(ph2.unwrap(), Photon::new(&Wavelength::Blue, &Ray::new(&Vector3::new(5.5, 4.4, 3.3), &Vector3::new(0.0, 0.0, 1.0))));
   }
 
 }
