@@ -1,17 +1,22 @@
 // tracer
 
 use std::f64;
+use std::iter::*;
 use std::vec::*;
 use std::cmp::*;
+
+//use kdtree::KdTree;
+use kdtree::distance::squared_euclidean;
 
 use super::ray::*;
 use super::ray::algebra::*;
 use super::ray::geometry::*;
 use super::ray::object::*;
+use super::ray::optics::*;
 use super::ray::light::*;
 use super::ray::material::*;
 use super::ray::physics::*;
-use super::ray::optics::*;
+//use super::ray::optics::*;
 
 use super::screen::*;
 use super::scene::*;
@@ -27,6 +32,9 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
   }
   
   let is = calc_intersection(&ph.ray, objs);
+  if is == None {
+    return vec![]
+  }
   let is1 = is.unwrap();
   let d = is1.mate.diffuseness;
   let i = russian_roulette(&[d]);
@@ -116,19 +124,59 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
   let ti = if f2 == Color::BLACK || ior1 == 0.0 {
     Radiance::RADIANCE0
   } else {
-    Radiance::RADIANCE0
+    let ior0 = m0.average_ior();
+    let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
+    let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
+    trace_ray(scr, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
 
-  is1.mate.emittance * SR_HALF + df * brdf(&is1.mate, &(di + ii)) + (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
+  is1.mate.emittance * SR_HALF +
+    df         * brdf(&is1.mate, &(di + ii)) +
+    (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
 }
 
 fn estimate_radiance(scr: &Screen, pmap: &PhotonMap, is: &Intersection) -> Radiance {
-  Radiance::RADIANCE0
+  let ps: Vec<(Flt, &Photon)> = pmap.kdtree.within(&is.pos.v, pmap.radius, &squared_euclidean).unwrap();
+  if ps.len() == 0 {
+    Radiance::RADIANCE0
+  } else {
+    let mut rad = Radiance::RADIANCE0;
+    for (d, p2) in ps {
+      let wt = match scr.pfilter {
+        PhotonFilter::Non   => 1.0,
+        PhotonFilter::Cone  => filter_cone(&d, &scr.radius),
+        PhotonFilter::Gauss => filter_gauss(&d, &scr.radius),
+      };
+      rad = rad + photoninfo_to_radiance(&is.nvec, &(wt * pmap.power), p2);
+    }
+    rad * (ONE_PI / scr.radius)
+  }
 }
 
+// Cone filter
+const K_CONE: Flt = 1.1;
+const FAC_K: Flt  = 1.0 - 2.0 / (3.0 * K_CONE);
 
+fn filter_cone(d: &Flt, rmax: &Flt) -> Flt {
+  let d2 = f64::sqrt(*d / rmax) / K_CONE;
+  if d2 > 1.0 { 0.0 } else { (1.0 - d2) / FAC_K }
+}
+
+// Gauss filter
+//const ALPHA: Flt  = 1.0 / 0.918;
+const ALPHA: Flt  = 0.918;
+const BETA: Flt   = 1.953;
+const E_BETA: Flt = 1.0 - 0.14184788965323;  // 1 - exp(-β)
+const CORR: Flt   = 0.5; //0.355;
+
+fn filter_gauss(d: &Flt, rmax: &Flt) -> Flt {
+  let e_r = 1.0 - (-BETA * d / (rmax * 2.0)).exp();
+  if e_r > E_BETA { 0.0 } else { ALPHA * (1.0 - e_r / E_BETA) + CORR }
+}
+
+//
 // CLASSIC Ray tracer
-
+//
 pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
   if l >= 10 {
     return Radiance::RADIANCE0
@@ -265,7 +313,23 @@ fn brdf(m: &Material, rad: &Radiance) -> Radiance {
 }
 
 
+#[cfg(test)]
+mod tests {
+  use super::*;
 
+  #[test]
+  fn test_filter() {
+    let r = 0.1 * 0.1;
+    let wt1 = filter_cone(&0.0, &r);
+    assert_eq!(wt1, 2.538461538461538);
+    let wt2 = filter_cone(&r, &r);
+    assert_eq!(wt2, 0.23076923076923078);
+    let wt3 = filter_gauss(&0.0, &r);
+    assert_eq!(wt3, 1.2730000000000001);
+    let wt4 = filter_gauss(&r, &r);
+    assert_eq!(wt4, 0.6061526928041553);
+  }
+}
 
 
 

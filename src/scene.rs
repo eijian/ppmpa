@@ -20,7 +20,7 @@ pub const M_AIR: Material = Material {
   smoothness:    0.0,
 };
 
-pub fn read_scene(file: &str) -> (Vec<Light>, Vec<Object>) {
+pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
 
   // light
   let l1 = Light::ParallelogramLight {

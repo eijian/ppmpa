@@ -1,10 +1,50 @@
+// Photon tracer
 
+use std::env;
 
-use ppmpa::ray::*;
-use ppmpa::ray::algebra::*;
-use ppmpa::ray::physics::*;
+//use ppmpa::ray::*;
+//use ppmpa::ray::algebra::*;
+//use ppmpa::ray::physics::*;
+//use ppmpa::ray::geometry::*;
+use ppmpa::ray::optics::*;
+use ppmpa::scene::*;
+use ppmpa::screen::*;
+use ppmpa::tracer::*;
+
+const USAGE: &str = "Usage: rtc <screen file> <scene file>";
 
 fn main() {
+  let args: Vec<String> = env::args().collect();
+  if args.len() != 3 {
+    println!("{}", USAGE);
+    //return Err(std::io::Error::new(ErrorKind::Other, USAGE));
+    return;
+  }
+  let scr = read_screen(&args[1]);
+
+  let (lgts, objs) = read_scene(&args[2]);
+  let (msize, photonmap) = read_map(&scr.n_sample_photon, &scr.radius);
+  eprintln!("finished reading map: {}", msize);
+
+  let rays = scr.screen_map.iter().map(|p| scr.generate_ray(p));
+  let image: Vec<Radiance> = rays.map(|r| trace_ray(&scr, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
+
+  for l in scr.pnm_header() {
+    println!("{}", l);
+  }
+  if scr.progressive == false {
+    for c in &image {
+      println!("{}", rgb_to_string(&scr.radiance_to_rgb(c)));
+    }
+  } else {
+    for c in &image {
+      println!("{}", radiance_to_string(c));
+    }
+  }
+
+
+
+/*
   let v1 = Vector3::new(1.0, 2.0, 3.0);
   let v2 = Vector3::new(3.0, 2.0, 1.0);
 
@@ -36,6 +76,6 @@ fn main() {
   let d3 = generate_random_dir();
   println!("d3={:?}", d3);
   println!("d3.x={}", d3.v[0]);
-
+*/
 
 }

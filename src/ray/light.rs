@@ -54,11 +54,11 @@ impl fmt::Display for Light {
 impl Light {
   pub fn flux(&self) -> Flt {
     match self {
-      Light::PointLight {color, flux, pos}
+      Light::PointLight {color: _, flux, pos: _}
         => *flux,
-      Light::ParallelogramLight {color, flux, pos, nvec, dir1, dir2}
+      Light::ParallelogramLight {color: _, flux, pos: _, nvec: _, dir1: _, dir2: _}
         => *flux,
-      Light::SunLight {color, flux, pos, nvec, dir1, dir2, dir}
+      Light::SunLight {color: _, flux, pos: _, nvec: _, dir1: _, dir2: _, dir: _}
         => *flux,
     }
   }

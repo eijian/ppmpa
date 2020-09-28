@@ -2,12 +2,19 @@
 
 use core::num::ParseFloatError;
 use std::fmt;
+//use std::io::BufReader;
+use std::io;
+use std::io::prelude::*;
+use std::io::BufReader;
 use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::str::*;
 //use std::string::*;
 
+use kdtree::KdTree;
+//use kdtree::ErrorKind;
+//use kdtree::distance::squared_euclidean;
 use regex::Regex;
 
 use super::*;
@@ -159,7 +166,7 @@ impl FromStr for Photon {
     let r  = caps[2].parse::<Ray>();
     match r {
       Ok(r2) => Ok(Photon::new(&wl, &r2)),
-      Err(e) => Err(format!("invalid ray data: {}", &caps[2])),
+      Err(_) => Err(format!("invalid ray data: {}", &caps[2])),
     }
   }
 }
@@ -190,25 +197,28 @@ pub fn square_distance(pi1: &PhotonInfo, pi2: &PhotonInfo) -> Flt {
   d.square()
 }
 
+pub fn photoninfo_to_radiance(n: &Direction3, pw: &Flt, ph: &Photon) -> Radiance {
+  let cos0 = n.dot(&ph.ray.dir);
+  let pw2 = if cos0 < 0.0 { *pw * -cos0 } else { 0.0 };
+  //eprintln!("NV:{}", pw);
+  match ph.wl {
+    Wavelength::Red   => Radiance(pw2, 0.0, 0.0),
+    Wavelength::Green => Radiance(0.0, pw2, 0.0),
+    Wavelength::Blue  => Radiance(0.0, 0.0, pw2),
+  }
+}
+
 pub struct PhotonMap {
-  power:    Flt,
-  nearest:  fn(PhotonInfo) -> Vec<PhotonInfo>,
-  inradius: fn(PhotonInfo) -> Vec<PhotonInfo>,
+  pub power: Flt,
+  pub nsample: i32,
+  pub radius: Flt,
+  pub kdtree: KdTree<Flt, Photon, [Flt; 3]>,
 }
 
 impl PhotonInfo {
   pub fn dummy(p: &Position3) -> PhotonInfo {
     PhotonInfo {wl: Wavelength::Red, pos: *p, dir: Vector3::EX}
   }
-
-  /*
-  pub fn pos(&self) -> Position3 {
-    self.1
-  }
-  pub fn dir(&self) -> Direction3 {
-    self.2
-  }
-  */
 
   pub fn to_radiance(&self, n: &Direction3, pw: &Flt) -> Radiance {
     let cos0 = n.dot(&self.dir);
@@ -225,11 +235,49 @@ impl PhotonInfo {
   }
 }
 
-/*
-pub fn read_map(nsample: i64, radius: Flt) -> (i64, PhotonMap) {
-  (1, PhotonMap {power: 1.0, nearest})
+pub fn read_map(nsample: &i32, radius: &Flt) -> (usize, PhotonMap) {
+  let mut reader = BufReader::new(io::stdin());
+  let mut line1 = String::new();
+  reader.read_line(&mut line1).expect("invalid #photon");
+  let mut line2 = String::new();
+  let pw0 = match reader.read_line(&mut line2) {
+    Ok(_) => {
+      match line2.trim().parse::<Flt>() {
+        Ok(pw) => pw,
+        _ => 1.0,
+      }
+    },
+    _ => 1.0,
+  };
+  let mut pmap =  KdTree::new(3);
+  let mut contents = String::new();
+  match reader.read_to_string(&mut contents) {
+    Err(e) => panic!("Error in reading photon map: {:?}", e),
+    _      => (),
+  }
+  let mut phs: Vec<Photon> = vec![];
+  let mut elems: Vec<&str>;
+  for line in contents.lines() {
+    elems = line.split(' ').collect();
+    let wl = match elems[0] {
+      "Red"   => Wavelength::Red,
+      "Green" => Wavelength::Green,
+      "Blue"  => Wavelength::Blue,
+      _       => Wavelength::Red,
+    };
+    let px = elems[1].parse::<Flt>().unwrap();
+    let py = elems[2].parse::<Flt>().unwrap();
+    let pz = elems[3].parse::<Flt>().unwrap();
+    let dx = elems[4].parse::<Flt>().unwrap();
+    let dy = elems[5].parse::<Flt>().unwrap();
+    let dz = elems[6].parse::<Flt>().unwrap();
+    phs.push(Photon::new(&wl, &Ray::new_from_elem(px, py, pz, dx, dy, dz).unwrap()));
+  }
+  for p in phs {
+    pmap.add(p.ray.pos.v, p).unwrap();
+  }
+  (pmap.size(), PhotonMap {power: pw0, nsample: *nsample, radius: *radius, kdtree: pmap})
 }
-*/
 
 //
 // tests

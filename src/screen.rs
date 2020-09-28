@@ -89,7 +89,7 @@ impl Screen {
 }
 
 
-pub fn read_screen(file: &str) -> Screen {
+pub fn read_screen(_file: &str) -> Screen {
   let target = Vector3::new_pos(0.0, 2.0, 0.0);
   let eyepos = Vector3::new_pos(0.0, 2.0, -4.5);
   let upper  = Vector3::EY;
@@ -125,15 +125,15 @@ pub fn read_screen(file: &str) -> Screen {
   }
 
   let scr = Screen {
-    nphoton: 1000000,
+    nphoton: 100000,
     progressive: prog_flag,
     xreso: xreso,
     yreso: yreso,
     antialias: aa_flag,
     n_sample_photon: 500,
     use_classic_for_direct: true,
-    radius: 0.2,
-    pfilter: PhotonFilter::Gauss,
+    radius: 0.1 * 0.1,            // squared radius 
+    pfilter: PhotonFilter::Non,
     ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001), //
     max_radiance: 0.01,
     eye_pos: eyepos,

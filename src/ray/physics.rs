@@ -163,7 +163,7 @@ pub fn russian_roulette(ps: &[Flt]) -> usize {
 
 fn check_under(ps: &[Flt], p: Flt) -> usize {
   let mut i: usize = 0;
-  while i < ps.len() && p > ps[i] {
+  while i < ps.len() && p < ps[i] {
     i += 1;
   }
   i
