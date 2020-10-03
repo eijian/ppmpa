@@ -1,6 +1,7 @@
 // Photon tracer
 
 use std::env;
+use std::time::{Instant};
 
 //use ppmpa::ray::*;
 //use ppmpa::ray::algebra::*;
@@ -23,8 +24,10 @@ fn main() {
   let scr = read_screen(&args[1]);
 
   let (lgts, objs) = read_scene(&args[2]);
+  let t0 = Instant::now();
   let (msize, photonmap) = read_map(&scr.n_sample_photon, &scr.radius);
-  eprintln!("finished reading map: {}", msize);
+  let t1 = t0.elapsed();
+  eprintln!("finished reading map: {} photons, {:?}.", msize, t1);
 
   let rays = scr.screen_map.iter().map(|p| scr.generate_ray(p));
   let image: Vec<Radiance> = rays.map(|r| trace_ray(&scr, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();

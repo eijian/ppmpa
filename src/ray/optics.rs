@@ -236,6 +236,7 @@ impl PhotonInfo {
 }
 
 pub fn read_map(nsample: &i32, radius: &Flt) -> (usize, PhotonMap) {
+  //eprintln!("radius= {}", radius);
   let mut reader = BufReader::new(io::stdin());
   let mut line1 = String::new();
   reader.read_line(&mut line1).expect("invalid #photon");

@@ -98,7 +98,7 @@ pub fn read_screen(_file: &str) -> Screen {
   let fnumber: Flt = 5.0;
   let xreso = 256;
   let yreso = 256;
-  let aa_flag = true;
+  let aa_flag = false;
   let prog_flag = false;
   let blur_flag = false;
 
@@ -125,7 +125,7 @@ pub fn read_screen(_file: &str) -> Screen {
   }
 
   let scr = Screen {
-    nphoton: 100000,
+    nphoton: 500000,
     progressive: prog_flag,
     xreso: xreso,
     yreso: yreso,
@@ -133,7 +133,7 @@ pub fn read_screen(_file: &str) -> Screen {
     n_sample_photon: 500,
     use_classic_for_direct: true,
     radius: 0.1 * 0.1,            // squared radius 
-    pfilter: PhotonFilter::Non,
+    pfilter: PhotonFilter::Gauss,
     ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001), //
     max_radiance: 0.01,
     eye_pos: eyepos,
