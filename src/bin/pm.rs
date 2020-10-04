@@ -11,30 +11,42 @@ use ppmpa::ray::object::*;
 use ppmpa::ray::physics::*;
 //use ppmpa::ray::optics::*;
 use ppmpa::scene::*;
-use ppmpa::screen::*;
+//use ppmpa::screen::*;
 use ppmpa::tracer::*;
 
-const USAGE: &str = "Usage: pm <screen file> <scene file>  (output photon map to stdout)";
+const USAGE: &str = "Usage: pm [-c|-h] <scene file> [<#photon>] (output photon map to stdout)";
+const DEF_NPHOTON: i32 = 100_000;
+const DEF_USECLASSIC: bool = true;
 
 //fn main() -> Result<(), std::io::Error> {
 fn main() {
   let args: Vec<String> = env::args().collect();
-  if args.len() != 3 {
+  if args.len() < 2 || args[1] == "-h" {
     println!("{}", USAGE);
     //return Err(std::io::Error::new(ErrorKind::Other, USAGE));
     return;
   }
-  let scr = read_screen(&args[1]);
-  let (lgts, objs) = read_scene(&args[2]);
+  //let scr = read_screen(&args[1]);
+  let nphoton = if args.len() == 3 {
+    let np = args[2].parse::<i32>();
+    match np {
+      Ok(n) => n,
+      _     => DEF_NPHOTON,
+    }
+  } else {
+    DEF_NPHOTON
+  };
+  let uc = DEF_USECLASSIC;
+  let (lgts, objs) = read_scene(&args[1]);
   let power0: Flt = lgts.iter().fold(0.0, |power0, l| power0 + l.flux());
-  let power = power0 / scr.nphoton as Flt;
+  let power = power0 / nphoton as Flt;
   let ns = lgts.iter().map(|l| calc_n(&power, l));   // 1光源あたりのフォトン数のリスト
   
-  println!("{}", scr.nphoton);
+  println!("{}", nphoton);
   println!("{}", power);
 
   for (n, l) in ns.zip(lgts.iter()) {
-    output_photon_caches(&scr.use_classic_for_direct, &objs, &l, n)
+    output_photon_caches(&uc, &objs, &l, n)
   }
 }
 

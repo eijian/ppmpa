@@ -20,13 +20,13 @@ impl fmt::Display for Rgb {
 */
 
 pub struct Screen {
-  pub nphoton: i32,
+  //pub nphoton: i32,
   pub progressive: bool,
   pub xreso: i32,
   pub yreso: i32,
   pub antialias: bool,
   pub n_sample_photon: i32,
-  pub use_classic_for_direct: bool,
+  //pub use_classic_for_direct: bool,
   pub radius: Flt,
   pub pfilter: PhotonFilter,
   pub ambient: Radiance,
@@ -98,8 +98,8 @@ pub fn read_screen(_file: &str) -> Screen {
   let fnumber: Flt = 5.0;
   let xreso = 256;
   let yreso = 256;
-  let aa_flag = false;
-  let prog_flag = false;
+  let aa_flag = true;
+  let prog_flag = true;
   let blur_flag = false;
 
   let _ez = (target - eyepos).normalize().unwrap();
@@ -125,13 +125,13 @@ pub fn read_screen(_file: &str) -> Screen {
   }
 
   let scr = Screen {
-    nphoton: 500000,
+    //nphoton: 500000,
     progressive: prog_flag,
     xreso: xreso,
     yreso: yreso,
     antialias: aa_flag,
     n_sample_photon: 500,
-    use_classic_for_direct: true,
+    //use_classic_for_direct: true,
     radius: 0.1 * 0.1,            // squared radius 
     pfilter: PhotonFilter::Gauss,
     ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001), //

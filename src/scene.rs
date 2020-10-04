@@ -84,7 +84,8 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     smoothness:    0.0,
   };
   let mparal = Material {
-    emittance: Radiance(0.7958, 0.7958, 0.7958),
+    //emittance: Radiance(0.7958, 0.7958, 0.7958),
+    emittance: Radiance(0.3, 0.3, 0.3),
     reflectance: Color(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     specular_refl: Color(0.8, 0.8, 0.8),

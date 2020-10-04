@@ -3,7 +3,7 @@
 use std::env;
 use std::time::{Instant};
 
-//use ppmpa::ray::*;
+use ppmpa::ray::*;
 //use ppmpa::ray::algebra::*;
 //use ppmpa::ray::physics::*;
 //use ppmpa::ray::geometry::*;
@@ -12,25 +12,37 @@ use ppmpa::scene::*;
 use ppmpa::screen::*;
 use ppmpa::tracer::*;
 
-const USAGE: &str = "Usage: rtc <screen file> <scene file>";
+const USAGE: &str = "Usage: rtc <scene file> <screen file> [<radius>]";
+const DEF_USECLASSIC: bool = true;
+const DEF_RADIUS: Flt = 0.1;
 
 fn main() {
   let args: Vec<String> = env::args().collect();
-  if args.len() != 3 {
+  if args.len() < 3 {
     println!("{}", USAGE);
     //return Err(std::io::Error::new(ErrorKind::Other, USAGE));
     return;
   }
-  let scr = read_screen(&args[1]);
+  let uc = DEF_USECLASSIC;  // use classic for direct
+  let radius = if args.len() == 4 {
+    let r = args[3].parse::<Flt>();
+    match r {
+      Ok(r) => r * r,
+      _     => DEF_RADIUS * DEF_RADIUS,
+    }
+  } else {
+    DEF_RADIUS * DEF_RADIUS
+  };
+  let (lgts, objs) = read_scene(&args[1]);
+  let scr = read_screen(&args[2]);
 
-  let (lgts, objs) = read_scene(&args[2]);
   let t0 = Instant::now();
-  let (msize, photonmap) = read_map(&scr.n_sample_photon, &scr.radius);
+  let (msize, photonmap) = read_map(&scr.n_sample_photon, &radius);
   let t1 = t0.elapsed();
   eprintln!("finished reading map: {} photons, {:?}.", msize, t1);
 
   let rays = scr.screen_map.iter().map(|p| scr.generate_ray(p));
-  let image: Vec<Radiance> = rays.map(|r| trace_ray(&scr, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
+  let image: Vec<Radiance> = rays.map(|r| trace_ray(&uc, &radius, &scr, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
 
   for l in scr.pnm_header() {
     println!("{}", l);

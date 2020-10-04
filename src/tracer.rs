@@ -89,7 +89,7 @@ fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Phot
 
 // Photon mapping method
 
-pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
+pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
   if l >= 10 {
     return Radiance::RADIANCE0
   }
@@ -99,7 +99,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
   }
 
   let is1 = is.unwrap();
-  let di = if scr.use_classic_for_direct == true {
+  let di = if *uc {
     let mut rad = Radiance::RADIANCE0;
     for l in lgts {
       rad = rad + get_radiance_from_light(objs, &is1.pos, &is1.nvec, l);
@@ -108,7 +108,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
   } else {
     Radiance::RADIANCE0
   };
-  let ii = estimate_radiance(&scr, &pmap, &is1);
+  let ii = estimate_radiance(&radius, &scr, &pmap, &is1);
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
   let df = is1.mate.diffuseness;
   let mt = is1.mate.metalness;
@@ -119,7 +119,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
   let si = if df == 1.0 || f == Color::BLACK {
     Radiance::RADIANCE0
   } else {
-    trace_ray(scr, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir))
+    trace_ray(uc, radius, scr, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir))
   };
   let ti = if f2 == Color::BLACK || ior1 == 0.0 {
     Radiance::RADIANCE0
@@ -127,7 +127,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
     let ior0 = m0.average_ior();
     let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
     let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
-    trace_ray(scr, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
+    trace_ray(uc, radius, scr, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
 
   is1.mate.emittance * SR_HALF +
@@ -135,7 +135,7 @@ pub fn trace_ray(scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &V
     (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
 }
 
-fn estimate_radiance(scr: &Screen, pmap: &PhotonMap, is: &Intersection) -> Radiance {
+fn estimate_radiance(radius: &Flt, scr: &Screen, pmap: &PhotonMap, is: &Intersection) -> Radiance {
   let ps: Vec<(Flt, &Photon)> = pmap.kdtree.within(&is.pos.v, pmap.radius, &squared_euclidean).unwrap();
   if ps.len() == 0 {
     Radiance::RADIANCE0
@@ -144,12 +144,12 @@ fn estimate_radiance(scr: &Screen, pmap: &PhotonMap, is: &Intersection) -> Radia
     for (d, p2) in ps {
       let wt = match scr.pfilter {
         PhotonFilter::Non   => 1.0,
-        PhotonFilter::Cone  => filter_cone(&d, &scr.radius),
-        PhotonFilter::Gauss => filter_gauss(&d, &scr.radius),
+        PhotonFilter::Cone  => filter_cone(&d, &radius),
+        PhotonFilter::Gauss => filter_gauss(&d, &radius),
       };
       rad = rad + photoninfo_to_radiance(&is.nvec, &(wt * pmap.power), p2);
     }
-    rad * (ONE_PI / scr.radius)
+    rad * (ONE_PI / radius)
   }
 }
 
