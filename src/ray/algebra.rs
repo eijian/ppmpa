@@ -204,6 +204,32 @@ pub fn generate_random_dir() -> Direction3 {
   }
 }
 
+pub fn generate_random_dir_by_angle() -> Direction3 {
+  let mut rng = rand::thread_rng();
+  let phi: Flt = rng.gen_range(0.0, 2.0 * f64::consts::PI);
+  let xi:  Flt = rng.gen_range(-1.0, 1.0);
+  let xi2: Flt = f64::sqrt(1.0 - xi.powf(2.0));
+  let x: Flt = xi2 * f64::cos(phi);
+  let y: Flt = xi;
+  let z: Flt = xi2 * f64::sin(phi);
+  let v = Vector3 {v: [x, y, z]};
+  v.normalize().unwrap()
+}
+
+/*
+  a = 0.2
+  b = a**
+  r = random.uniform(0,1)
+  xi = -(2 * r**((b*1000+1)) - 1)
+  #xi = random.uniform(-1,1)
+  X.append(sqrt(1-xi**2) * cos(phi))
+  Y.append(sqrt(1-xi**2) * sin(phi))
+  Z.append(xi)
+
+}
+*/
+  
+
 
 // TESTS
 

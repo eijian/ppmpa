@@ -147,7 +147,8 @@ impl Shape {
 }
 
 pub fn diffuse_reflection(n: &Direction3) -> Direction3 {
-  let d = generate_random_dir();
+  //let d = generate_random_dir();
+  let d = generate_random_dir_by_angle();
   let c = n.dot(&d);
   if c > 0.0 {
     d
