@@ -7,12 +7,12 @@ use ppmpa::ray::*;
 //use ppmpa::ray::algebra::*;
 //use ppmpa::ray::physics::*;
 //use ppmpa::ray::geometry::*;
+use ppmpa::camera::*;
 use ppmpa::ray::optics::*;
 use ppmpa::scene::*;
-use ppmpa::screen::*;
 use ppmpa::tracer::*;
 
-const USAGE: &str = "Usage: rtc <scene file> <screen file> [<radius>]";
+const USAGE: &str = "Usage: rtc <scene file> <camera file> [<radius>]";
 const DEF_USECLASSIC: bool = true;
 const DEF_RADIUS: Flt = 0.1;
 
@@ -34,22 +34,22 @@ fn main() {
     DEF_RADIUS * DEF_RADIUS
   };
   let (lgts, objs) = read_scene(&args[1]);
-  let scr = read_screen(&args[2]);
+  let cam = read_camera(&args[2]);
 
   let t0 = Instant::now();
-  let (msize, photonmap) = read_map(&scr.n_sample_photon, &radius);
+  let (msize, photonmap) = read_map(&cam.n_sample_photon, &radius);
   let t1 = t0.elapsed();
   eprintln!("finished reading map: {} photons, {:?}.", msize, t1);
 
-  let rays = scr.screen_map.iter().map(|p| scr.generate_ray(p));
-  let image: Vec<Radiance> = rays.map(|r| trace_ray(&uc, &radius, &scr, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
+  let rays = cam.screen_map.iter().map(|p| cam.generate_ray(p));
+  let image: Vec<Radiance> = rays.map(|r| trace_ray(&uc, &radius, &cam, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
 
-  for l in scr.pnm_header() {
+  for l in cam.pnm_header() {
     println!("{}", l);
   }
-  if scr.progressive == false {
+  if cam.progressive == false {
     for c in &image {
-      println!("{}", rgb_to_string(&scr.radiance_to_rgb(c)));
+      println!("{}", rgb_to_string(&cam.radiance_to_rgb(c)));
     }
   } else {
     for c in &image {

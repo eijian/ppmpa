@@ -7,8 +7,8 @@ use std::env;
 //use ppmpa::ray::algebra::*;
 use ppmpa::ray::geometry::*;
 use ppmpa::ray::optics::*;
+use ppmpa::camera::*;
 use ppmpa::scene::*;
-use ppmpa::screen::*;
 use ppmpa::tracer::*;
 
 const USAGE: &str = "Usage: rtc <screen file> <scene file>";
@@ -21,7 +21,7 @@ fn main() {
     //return Err(std::io::Error::new(ErrorKind::Other, USAGE));
     return;
   }
-  let scr = read_screen(&args[1]);
+  let scr = read_camera(&args[1]);
   for l in scr.pnm_header() {
     println!("{}", l);
   }

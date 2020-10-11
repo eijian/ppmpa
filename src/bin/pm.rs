@@ -11,7 +11,6 @@ use ppmpa::ray::object::*;
 use ppmpa::ray::physics::*;
 //use ppmpa::ray::optics::*;
 use ppmpa::scene::*;
-//use ppmpa::screen::*;
 use ppmpa::tracer::*;
 
 const USAGE: &str = "Usage: pm [-c|-h] <scene file> [<#photon>] (output photon map to stdout)";

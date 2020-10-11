@@ -1,4 +1,4 @@
-// screen
+// camera
 
 use std::f64;
 use rand::Rng;
@@ -19,7 +19,7 @@ impl fmt::Display for Rgb {
 }
 */
 
-pub struct Screen {
+pub struct Camera {
   //pub nphoton: i32,
   pub progressive: bool,
   pub xreso: i32,
@@ -48,7 +48,7 @@ pub const RGBMAX: Flt = 255.0;
 
 //const DEFCONF: HashMap = HashMap
 
-impl Screen {
+impl Camera {
   pub fn generate_ray(&self, (y, x): &(Flt, Flt)) -> Ray {
     let mut rng = rand::thread_rng();
     let blur_offset = if self.blur == true {
@@ -89,7 +89,7 @@ impl Screen {
 }
 
 
-pub fn read_screen(_file: &str) -> Screen {
+pub fn read_camera(_file: &str) -> Camera {
   let target = Vector3::new_pos(0.0, 2.0, 0.0);
   let eyepos = Vector3::new_pos(0.0, 2.0, -4.5);
   let upper  = Vector3::EY;
@@ -124,7 +124,7 @@ pub fn read_screen(_file: &str) -> Screen {
     }
   }
 
-  let scr = Screen {
+  let cam = Camera {
     //nphoton: 500000,
     progressive: prog_flag,
     xreso: xreso,
@@ -147,7 +147,7 @@ pub fn read_screen(_file: &str) -> Screen {
     eex: eex,
     eey: eey,
   };
-  scr
+  cam
 }
 
 pub fn rgb_to_string(c: &Rgb) -> String {
@@ -158,8 +158,8 @@ pub fn radiance_to_string(r: &Radiance) -> String {
   format!("{:e} {:e} {:e}", r.0, r.1, r.2)
 }
 
-pub fn rgb_to_radiance(scr: &Screen, c: &Rgb) -> Radiance {
-  let mag = scr.max_radiance / RGBMAX;
+pub fn rgb_to_radiance(cam: &Camera, c: &Rgb) -> Radiance {
+  let mag = cam.max_radiance / RGBMAX;
   Radiance(c.0 as Flt * mag, c.1 as Flt * mag, c.2 as Flt * mag)
 }
 

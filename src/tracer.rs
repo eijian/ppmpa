@@ -18,7 +18,7 @@ use super::ray::material::*;
 use super::ray::physics::*;
 //use super::ray::optics::*;
 
-use super::screen::*;
+use super::camera::*;
 use super::scene::*;
 
 const ONE_PI: Flt  = 1.0 / f64::consts::PI;
@@ -89,7 +89,7 @@ fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Phot
 
 // Photon mapping method
 
-pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, pmap: &PhotonMap, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
+pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, pmap: &PhotonMap, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
   if l >= 10 {
     return Radiance::RADIANCE0
   }
@@ -108,7 +108,7 @@ pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, p
   } else {
     Radiance::RADIANCE0
   };
-  let ii = estimate_radiance(&radius, &scr, &pmap, &is1);
+  let ii = estimate_radiance(&radius, &cam, &pmap, &is1);
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
   let df = is1.mate.diffuseness;
   let mt = is1.mate.metalness;
@@ -119,7 +119,7 @@ pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, p
   let si = if df == 1.0 || f == Color::BLACK {
     Radiance::RADIANCE0
   } else {
-    trace_ray(uc, radius, scr, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir))
+    trace_ray(uc, radius, cam, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir))
   };
   let ti = if f2 == Color::BLACK || ior1 == 0.0 {
     Radiance::RADIANCE0
@@ -127,7 +127,7 @@ pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, p
     let ior0 = m0.average_ior();
     let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
     let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
-    trace_ray(uc, radius, scr, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
+    trace_ray(uc, radius, cam, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
 
   is1.mate.emittance * SR_HALF +
@@ -135,14 +135,14 @@ pub fn trace_ray(uc: &bool, radius: &Flt, scr: &Screen, m0: &Material, l: i32, p
     (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
 }
 
-fn estimate_radiance(radius: &Flt, scr: &Screen, pmap: &PhotonMap, is: &Intersection) -> Radiance {
+fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersection) -> Radiance {
   let ps: Vec<(Flt, &Photon)> = pmap.kdtree.within(&is.pos.v, pmap.radius, &squared_euclidean).unwrap();
   if ps.len() == 0 {
     Radiance::RADIANCE0
   } else {
     let mut rad = Radiance::RADIANCE0;
     for (d, p2) in ps {
-      let wt = match scr.pfilter {
+      let wt = match cam.pfilter {
         PhotonFilter::Non   => 1.0,
         PhotonFilter::Cone  => filter_cone(&d, &radius),
         PhotonFilter::Gauss => filter_gauss(&d, &radius),
@@ -177,7 +177,7 @@ fn filter_gauss(d: &Flt, rmax: &Flt) -> Flt {
 //
 // CLASSIC Ray tracer
 //
-pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
+pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
   if l >= 10 {
     return Radiance::RADIANCE0
   }
@@ -204,7 +204,7 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
   let si = if  df == 1.0 || f == Color::BLACK {
     Radiance::RADIANCE0
   } else {
-    trace_ray_classic(scr, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir))
+    trace_ray_classic(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir))
   };
   let ti = if f2 == Color::BLACK || ior1 == 0.0 {
     Radiance::RADIANCE0
@@ -212,11 +212,11 @@ pub fn trace_ray_classic(scr: &Screen, m0: &Material, l: i32, objs: &Vec<Object>
     let ior0 = m0.average_ior();
     let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
     let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
-    trace_ray_classic(scr, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
+    trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
 
   is1.mate.emittance * SR_HALF +
-    df         * brdf(&is1.mate, &(scr.ambient + rad_diff)) +
+    df         * brdf(&is1.mate, &(cam.ambient + rad_diff)) +
     (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
 }
 
