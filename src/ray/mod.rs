@@ -3,6 +3,7 @@
 use std::f64;
 
 pub mod algebra;
+pub mod bsdf;
 pub mod geometry;
 pub mod material;
 pub mod light;

@@ -10,6 +10,7 @@ use kdtree::distance::squared_euclidean;
 
 use super::ray::*;
 use super::ray::algebra::*;
+use super::ray::bsdf::*;
 use super::ray::geometry::*;
 use super::ray::object::*;
 use super::ray::optics::*;
@@ -22,7 +23,7 @@ use super::camera::*;
 use super::scene::*;
 
 const ONE_PI: Flt  = 1.0 / f64::consts::PI;
-const SR_HALF: Flt = 1.0 / (2.0 * f64::consts::PI);
+//const SR_HALF: Flt = 1.0 / (2.0 * f64::consts::PI);
 
 // Photon tracing
 
@@ -99,40 +100,38 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
   }
 
   let is1 = is.unwrap();
+  let mate = is1.mate;
+  let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
+
   let di = if *uc {
     let mut rad = Radiance::RADIANCE0;
-    for l in lgts {
-      rad = rad + get_radiance_from_light(objs, &is1.pos, &is1.nvec, l);
+    for lt in lgts {
+      rad = rad + get_radiance_from_light(objs, &is1.pos, &is1.nvec, lt);
     }
     rad
   } else {
     Radiance::RADIANCE0
   };
+
   let ii = estimate_radiance(&radius, &cam, &pmap, &is1);
-  let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
-  let df = is1.mate.diffuseness;
-  let mt = is1.mate.metalness;
-  let f = reflection_index(&is1.mate.specular_refl, &cos0);
-  let f2 = -f;
-  let ior1 = is1.mate.average_ior();
   
-  let si = if df == 1.0 || f == Color::BLACK {
+  let si = if mate.diffuseness == 1.0 || (cos0 == 1.0 && mate.specular_refl == Color::BLACK) {
     Radiance::RADIANCE0
   } else {
     trace_ray(uc, radius, cam, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir))
   };
-  let ti = if f2 == Color::BLACK || ior1 == 0.0 {
+
+  let ior0 = m0.average_ior();
+  let ior1 = mate.average_ior();
+  let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
+  let ti = if ior1 == 0.0 || (cos0 == 0.0 && mate.specular_refl == Color::WHITE) {
     Radiance::RADIANCE0
   } else {
-    let ior0 = m0.average_ior();
-    let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
-    let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
+    let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
     trace_ray(uc, radius, cam, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
-
-  is1.mate.emittance * SR_HALF +
-    df         * brdf(&is1.mate, &(di + ii)) +
-    (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
+ 
+  bsdf(&is1.nvec, &rdir, &tdir, &mate, &cos0, &ior0, &ior1, &(di + ii), &si, &ti)
 }
 
 fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersection) -> Radiance {
@@ -181,43 +180,39 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
   if l >= 10 {
     return Radiance::RADIANCE0
   }
-  //return Radiance(1.0, 0.0, 0.0);
   let is = calc_intersection(r, objs);
   if is == None {
     return Radiance::RADIANCE0
   }
 
   let is1 = is.unwrap();
-  let diffs = lgts.iter().map(|l| get_radiance_from_light(objs, &is1.pos, &is1.nvec, &l));
-  let mut rad_diff = Radiance::RADIANCE0;
-  for d in diffs {
-    rad_diff = rad_diff + d;
-  }
-  //let ii = Radiance::RADIANCE0;
+  let mate = is1.mate;
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir);
-  let df = is1.mate.diffuseness;
-  let mt = is1.mate.metalness;
-  let f = reflection_index(&is1.mate.specular_refl, &cos0);
-  let f2 = -f;
-  let ior1 = is1.mate.average_ior();
 
-  let si = if  df == 1.0 || f == Color::BLACK {
+  let mut di = Radiance::RADIANCE0;
+  for lt in lgts {
+    di = di + get_radiance_from_light(objs, &is1.pos, &is1.nvec, lt);
+  }
+
+  let ii = cam.ambient;
+
+  let si = if mate.diffuseness == 1.0 || (cos0 == 1.0 && mate.specular_refl == Color::BLACK) {    
     Radiance::RADIANCE0
   } else {
     trace_ray_classic(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir))
   };
-  let ti = if f2 == Color::BLACK || ior1 == 0.0 {
+
+  let ior0 = m0.average_ior();
+  let ior1 = is1.mate.average_ior();
+  let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
+  let ti = if ior1 == 0.0 || (cos0 == 0.0 && mate.specular_refl == Color::WHITE) {
     Radiance::RADIANCE0
   } else {
-    let ior0 = m0.average_ior();
-    let (tdir, _) = specular_refraction(&ior0, &ior1, &cos0, &r.dir, &is1.nvec);
-    let m02 = if tdir.dot(&is1.nvec) < 0.0 { is1.mate } else { M_AIR };
+    let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
     trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
   };
 
-  is1.mate.emittance * SR_HALF +
-    df         * brdf(&is1.mate, &(cam.ambient + rad_diff)) +
-    (1.0 - df) * (f * si + (1.0 - mt) * f2 * ti)
+  bsdf(&is1.nvec, &rdir, &tdir, &mate, &cos0, &ior0, &ior1, &(di + ii), &si, &ti)
 }
 
 // private
@@ -306,10 +301,6 @@ fn calc_distance(r: &Ray, o: &Object) -> Vec<(Flt, Object)> {
     iss.push((*t, *o))
   }
   iss
-}
-
-fn brdf(m: &Material, rad: &Radiance) -> Radiance {
-  m.reflectance * ONE_PI * *rad
 }
 
 

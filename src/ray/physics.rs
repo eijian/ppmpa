@@ -169,12 +169,6 @@ fn check_under(ps: &[Flt], p: Flt) -> usize {
   i
 }
 
-pub fn reflection_index(col: &Color, c: &Flt) -> Color {
-  let c2 = (1.0 - *c).powf(5.0);
-  Color(col.0 + (1.0 - col.0) * c2, col.1 + (1.0 - col.1) * c2, col.2 + (1.0 - col.2) * c2)
-}
-
-
 // TESTS
 
 #[cfg(test)]

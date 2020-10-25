@@ -7,7 +7,8 @@ require 'logger'
 
 USAGE = 'iterator.rb <#photon> <#iteration> <radius(m)> <screen(.scr)> <scene(.scene)>'
 
-CMD = "cargo run --release --bin "
+#CMD = "cargo run --release --bin "
+CMD = "target/release/"
 PM = "#{CMD}pm"
 RT = "#{CMD}rt"
 
