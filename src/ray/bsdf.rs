@@ -13,6 +13,8 @@ const ONE_PI: Flt = 1.0 / f64::consts::PI;
 const SR_HALF: Flt = 1.0 / (2.0 * f64::consts::PI);
 
 pub enum BSDF {
+  Simple,
+  Simple2,
   LambertBlinn,
   DisneyBRDF,
   Brady,
@@ -25,10 +27,38 @@ pub fn bsdf(nvec: &Direction3, rdir: &Direction3, tdir: &Direction3,
   let f  = reflection_index(&mate.specular_refl, cos0);
   let f2 = -f;
 
-  mate.emittance * SR_HALF +
-    mate.diffuseness         * (mate.reflectance * ONE_PI * *di) +
-    (1.0 - mate.diffuseness) * (f * *si + (1.0 - mate.metalness) * f2 * *ti)
+  let model = BSDF::Simple;
+
+  match model {
+    BSDF::Simple         => {
+      mate.emittance * SR_HALF +
+      mate.diffuseness         * (mate.reflectance * ONE_PI * *di) +
+      (1.0 - mate.diffuseness) * (f * *si + (1.0 - mate.metalness) * f2 * *ti)
+    },
+    BSDF::Simple2        => {
+      mate.emittance * SR_HALF +
+      (1.0 - mate.metalness) * (mate.reflectance * ONE_PI * *di + f * *si + f2 * *ti) +
+      mate.metalness         * (f * *si)
+    },
+    BSDF::LambertBlinn => {
+      Radiance::RADIANCE0
+    },
+    BSDF::DisneyBRDF   => {
+      Radiance::RADIANCE0
+    },
+    BSDF::Brady        => {
+      Radiance::RADIANCE0
+    },
+  }
 }
+
+pub fn select_diffuse(mate: &Material) -> bool {
+  let m = mate.metalness;
+  russian_roulette(&[m]) > 0
+}
+
+
+// private methods
 
 fn reflection_index(col: &Color, c: &Flt) -> Color {
   let c2 = (1.0 - *c).powf(5.0);

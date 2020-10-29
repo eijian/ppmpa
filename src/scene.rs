@@ -63,6 +63,7 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     metalness:     0.0,
     smoothness:    0.0,
   };
+  // == ORIGINAL
   let glass = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     reflectance: Color(0.0, 0.0, 0.0),
@@ -73,6 +74,19 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     metalness:     0.0,
     smoothness:    0.0,
   };
+  /*
+  let glass = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    reflectance: Color(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    specular_refl: Color(0.08, 0.08, 0.08),
+    ior:           Color(2.0, 2.0, 2.0),
+    diffuseness:   0.0,
+    metalness:     0.0,
+    smoothness:    0.0,
+  };
+  */
+  // == ORIGINAL
   let silver = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     reflectance: Color(0.0, 0.0, 0.0),
@@ -83,6 +97,18 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     metalness:     1.0,
     smoothness:    0.0,
   };
+  /*
+  let silver = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    reflectance: Color(0.5, 0.3, 0.1),
+    transmittance: Color(0.0, 0.0, 0.0),
+    specular_refl: Color(0.78, 0.78, 0.78),
+    ior:           Color(0.0, 0.0, 0.0),
+    diffuseness:   0.0,
+    metalness:     1.0,
+    smoothness:    0.0,
+  };
+  */
   let mparal = Material {
     //emittance: Radiance(0.7958, 0.7958, 0.7958),
     emittance: Radiance(0.3, 0.3, 0.3),

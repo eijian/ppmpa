@@ -39,10 +39,9 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
   let is1 = is.unwrap();
   let d = is1.mate.diffuseness;
   let i = russian_roulette(&[d]);
-  let mut pcs = if i > 0 {
-    reflect_diff(uc, m0, objs, l, ph, &is1)
-  } else {
-    reflect_spec(uc, m0, objs, l, ph, &is1)
+  let mut pcs = match (i > 0) {
+    true  => reflect_diff(uc, m0, objs, l, ph, &is1),
+    false => reflect_spec(uc, m0, objs, l, ph, &is1),
   };
   if (*uc == false || l > 0) && d > 0.0 {
     pcs.push(Photon::new(&ph.wl, &Ray::new(&is1.pos, &ph.ray.dir)));
