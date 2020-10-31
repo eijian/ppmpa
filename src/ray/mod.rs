@@ -3,13 +3,13 @@
 use std::f64;
 
 pub mod algebra;
-pub mod bsdf;
 pub mod geometry;
 pub mod material;
 pub mod light;
 pub mod object;
 pub mod optics;
 pub mod physics;
+pub mod surface;
 
 pub type Flt = f64;
 

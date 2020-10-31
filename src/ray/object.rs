@@ -47,7 +47,7 @@ mod tests {
       ior: Color(0.8, 0.2, 0.5),
       diffuseness: 0.5,
       metalness: 0.1,
-      smoothness: 0.2,
+      roughness: 0.2,
     };
     let obj = Object::new(&shp, &mat);
     assert_eq!(obj.shape, shp);

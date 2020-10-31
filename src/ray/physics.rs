@@ -81,7 +81,7 @@ impl Color {
     }
   }
 
-  pub fn select_wavelength(&self, w: Wavelength) -> Flt {
+  pub fn select_wavelength(&self, w: &Wavelength) -> Flt {
     match w {
       Wavelength::Red   => self.0,
       Wavelength::Green => self.1,

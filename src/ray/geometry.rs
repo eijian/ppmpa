@@ -146,44 +146,6 @@ impl Shape {
 
 }
 
-pub fn diffuse_reflection(n: &Direction3) -> Direction3 {
-  //let d = generate_random_dir();
-  let d = generate_random_dir_by_angle();
-  let c = n.dot(&d);
-  if c > 0.0 {
-    d
-  } else {
-    -d
-  }
-}
-
-pub fn specular_reflection(n: &Direction3, e: &Direction3) -> (Direction3, Flt) {
-  let c = e.dot(n);
-  let v = (*e - (2.0 * c) * *n).normalize();
-  if v == None {
-    (*n, 0.0)
-  } else {
-    if c < 0.0 {
-      (v.unwrap(), -c)
-    } else {
-      (v.unwrap(), c)
-    }
-  }
-}
-
-pub fn specular_refraction(ior0: &Flt, ior1: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3) -> (Direction3, Flt) {
-  let ior2 = ior0 / ior1;
-  let r = 1.0 / (ior2 * ior2) + c0 * c0 - 1.0;
-  let a = c0 - f64::sqrt(r);
-  let n2 = if ed.dot(n) > 0.0 { -(*n) } else { *n };
-  let t = (ior2 * (*ed + a * n2)).normalize();
-  if r < 0.0 || t == None {
-    (Vector3::O, 0.0)
-  } else {
-    (t.unwrap(), ior2)
-  }
-}
-
 pub fn method_moller(l: &Flt, p0: &Position3, d1: &Direction3, d2: &Direction3, p: &Position3, d: &Direction3) -> Option<(Flt, Flt, Flt)> {
   let re2 = d.cross(d2);
   let det_a = re2.dot(d1);

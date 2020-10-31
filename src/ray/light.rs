@@ -6,8 +6,9 @@ use rand::Rng;
 use super::*;
 use super::algebra::*;
 use super::geometry::*;
-use super::physics::*;
 use super::optics::*;
+use super::physics::*;
+use super::surface::*;
 
 pub type Flux = Flt;
 
