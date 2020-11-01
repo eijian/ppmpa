@@ -50,6 +50,7 @@ impl FromStr for Vector3 {
 impl Neg for Vector3 {
   type Output = Vector3;
 
+  #[inline(always)]
   fn neg(self) -> Self::Output {
     Vector3 {v: [-self.v[0], -self.v[1], -self.v[2]] }
   }
@@ -58,6 +59,7 @@ impl Neg for Vector3 {
 impl Add for Vector3 {
   type Output = Vector3;
 
+  #[inline(always)]
   fn add(self, target: Self) -> Self::Output {
     Vector3 {
       v: [self.v[0] + target.v[0], self.v[1] + target.v[1], self.v[2] + target.v[2]],
@@ -68,6 +70,7 @@ impl Add for Vector3 {
 impl Sub for Vector3 {
   type Output = Vector3;
 
+  #[inline(always)]
   fn sub(self, target: Self) -> Self::Output {
     Vector3 {
       v: [self.v[0] - target.v[0], self.v[1] - target.v[1], self.v[2] - target.v[2]],
@@ -78,6 +81,7 @@ impl Sub for Vector3 {
 impl Mul<Flt> for Vector3 {
   type Output = Vector3;
 
+  #[inline(always)]
   fn mul(self, s: Flt) -> Self::Output {
     Vector3 {
       v: [self.v[0] * s, self.v[1] * s, self.v[2] * s],
@@ -88,6 +92,7 @@ impl Mul<Flt> for Vector3 {
 impl Mul<Vector3> for Flt {
   type Output = Vector3;
 
+  #[inline(always)]
   fn mul(self, vec: Vector3) -> Self::Output {
     Vector3 {
       v: [self * vec.v[0], self * vec.v[1], self * vec.v[2]],
@@ -98,6 +103,7 @@ impl Mul<Vector3> for Flt {
 impl Div<Flt> for Vector3 {
   type Output = Option<Vector3>;
 
+  #[inline(always)]
   fn div(self, s: Flt) -> Self::Output {
     if s == 0.0 {
       None
@@ -114,27 +120,34 @@ pub trait BasicMatrix: Copy {
 
 pub trait Vector: BasicMatrix + Copy + std::marker::Sized {
   fn dot(&self, target: &Self) -> Flt;
+
+  #[inline(always)]
   fn square(&self) -> Flt {
     self.dot(self)
   }
+
   fn normalize(&self) -> Option<Self>;
 }
 
 impl BasicMatrix for Vector3 {
+  #[inline(always)]
   fn norm(&self) -> Flt {
     f64::sqrt(self.square())
   }
 
+  #[inline(always)]
   fn near(&self, target: &Self) -> bool {
     (*self - *target).norm() < NEARLY0
   }
 }
 
 impl Vector for Vector3 {
+  #[inline(always)]
   fn dot(&self, target: &Self) -> Flt {
     self.v[0] * target.v[0] + self.v[1] * target.v[1] + self.v[2] * target.v[2]
   }
 
+  #[inline(always)]
   fn normalize(&self) -> Option<Self> {
     let norm = self.norm();
     if norm == 0.0 {
@@ -152,10 +165,12 @@ impl Vector3 {
   pub const EY: Vector3 = Vector3 {v: [0.0, 1.0, 0.0]};
   pub const EZ: Vector3 = Vector3 {v: [0.0, 0.0, 1.0]};
 
+  #[inline(always)]
   pub fn new(x: Flt, y: Flt, z: Flt) -> Self {
     Vector3 {v: [x, y, z]}
   }
 
+  #[inline(always)]
   pub fn cross(&self, target: &Self) -> Self {
     Vector3 {
       v: [self.v[1] * target.v[2] - target.v[1] * self.v[2],
@@ -168,6 +183,7 @@ impl Vector3 {
 pub type Position3  = Vector3;
 
 impl Position3 {
+  #[inline(always)]
   pub fn new_pos(x: Flt, y: Flt, z: Flt) -> Self {
     Vector3 {v: [x, y, z]}
   }
@@ -176,11 +192,13 @@ impl Position3 {
 pub type Direction3 = Vector3;
 
 impl Direction3 {
+  #[inline(always)]
   pub fn new_dir(x: Flt, y: Flt, z: Flt) -> Option<Self> {
     let v = Vector3 {v: [x, y, z]};
     v.normalize()
   }
 
+  #[inline(always)]
   pub fn new_dir_from_angle(theta: Flt, phi: Flt) -> Option<Self> {
     let sint = f64::sin(theta);
     let x = sint * f64::cos(phi);

@@ -34,37 +34,37 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.5, 0.5, 0.5),
-      specular_refl: Color(0.8, 0.8, 0.8),
-      diffuseness:   1.0,
-      metalness:     0.0,
-      roughness:    0.0,
-    },
+    surface: Surface::new_simple(
+      &Color(0.5, 0.5, 0.5),
+      &Color(0.8, 0.8, 0.8),
+      &1.0,
+      &0.0,
+      &0.0,
+    ),
   };
   let mwallb = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.1, 0.1, 0.4),
-      specular_refl: Color(0.8, 0.0, 0.8),
-      diffuseness:   1.0,
-      metalness:     0.0,
-      roughness:    0.0,
-    },
+    surface: Surface::new_simple(
+      &Color(0.1, 0.1, 0.4),
+      &Color(0.8, 0.0, 0.8),
+      &1.0,
+      &0.0,
+      &0.0,
+    ),
   };
   let mwallr = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.4, 0.1, 0.1),
-      specular_refl: Color(0.0, 0.0, 0.0),
-      diffuseness:   1.0,
-      metalness:     0.0,
-      roughness:    0.0,
-    },
+    surface: Surface::new_simple(
+      &Color(0.4, 0.1, 0.1),
+      &Color(0.0, 0.0, 0.0),
+      &1.0,
+      &0.0,
+      &0.0,
+    ),
   };
   // == ORIGINAL
   /*
@@ -120,80 +120,186 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     roughness:    0.0,
   };
   */
-
-  let ball1 = Material {
+  let ball10 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.78, 0.78, 0.78),
-      diffuseness:   0.0,
-      metalness:     1.0,
-      roughness:    1.0,
-    },
+    //surface: Surface::new_simple(
+    surface: Surface::new_ts(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &1.0,
+    ),
   };
-  let ball2 = Material {
+  let ball9 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.78, 0.78, 0.78),
-      diffuseness:   0.0,
-      metalness:     1.0,
-      roughness:    0.9,
-    },
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.9,
+    ),
   };
-  let ball3 = Material {
+  let ball8 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.78, 0.78, 0.78),
-      diffuseness:   0.0,
-      metalness:     1.0,
-      roughness:    0.8,
-    },
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.8,
+    ),
+  };
+  let ball7 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.7,
+    ),
+  };
+  /*
+  let ball6 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.6,
+    ),
+  };
+  */
+  let ball6 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    surface: Surface::new_ts(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.6,
+    ),
+  };
+  /*
+  let ball5 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.5,
+    ),
+  };
+  */
+  let ball5 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    //surface: Surface::new_simple(
+    surface: Surface::new_ts(
+      &Color(0.6, 0.35, 0.1),
+      &Color(0.05, 0.05, 0.05),
+      &1.0,
+      &0.0,
+      &0.9,
+    ),
   };
   let ball4 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.78, 0.78, 0.78),
-      diffuseness:   0.0,
-      metalness:     1.0,
-      roughness:    0.7,
-    },
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.4,
+    ),
   };
-  let ball5 = Material {
+  let ball3 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.78, 0.78, 0.78),
-      diffuseness:   0.0,
-      metalness:     1.0,
-      roughness:    0.6,
-    },
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.3,
+    ),
   };
+  let ball2 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.2,
+    ),
+  };
+  /*
+  let ball1 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    //surface: Surface::new_simple(
+    surface: Surface::new_ts(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.78, 0.78, 0.78),
+      &0.0,
+      &1.0,
+      &0.1,
+    ),
+  };
+  */
+  let ball1 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(0.0, 0.0, 0.0),
+    //surface: Surface::new_simple(
+    surface: Surface::new_ts(
+      &Color(0.6, 0.35, 0.1),
+      &Color(0.05, 0.05, 0.05),
+      &1.0,
+      &0.0,
+      &0.0,
+    ),
+  };
+
 
   let mparal = Material {
     //emittance: Radiance(0.7958, 0.7958, 0.7958),
-    emittance: Radiance(0.3, 0.3, 0.3),
+    emittance: Radiance(0.2, 0.2, 0.2),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::Simple {
-      reflectance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.8, 0.8, 0.8),
-      diffuseness:   0.0,
-      metalness:     0.0,
-      roughness:    0.0,
-    },
+    surface: Surface::new_simple(
+      &Color(0.0, 0.0, 0.0),
+      &Color(0.8, 0.8, 0.8),
+      &0.0,
+      &0.0,
+      &0.0,
+    ),
   };
 
   // objects
@@ -232,24 +338,44 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
   };
   */
   let ball_1 = Object {
-    shape: Shape::Sphere {center: Position3::new_pos(-1.6, 0.7, 3.5), radius: 0.4},
+    shape: Shape::Sphere {center: Position3::new_pos(-1.6, 1.5, 3.0), radius: 0.4},
     material: ball1
   };
   let ball_2 = Object {
-    shape: Shape::Sphere {center: Position3::new_pos(-0.8, 0.7, 3.5), radius: 0.4},
+    shape: Shape::Sphere {center: Position3::new_pos(-0.8, 1.5, 3.0), radius: 0.4},
     material: ball2
   };
   let ball_3 = Object {
-    shape: Shape::Sphere {center: Position3::new_pos(0.0, 0.7, 3.5), radius: 0.4},
+    shape: Shape::Sphere {center: Position3::new_pos(0.0, 1.5, 3.0), radius: 0.4},
     material: ball3
   };
   let ball_4 = Object {
-    shape: Shape::Sphere {center: Position3::new_pos(0.8, 0.7, 3.5), radius: 0.4},
+    shape: Shape::Sphere {center: Position3::new_pos(0.8, 1.5, 3.0), radius: 0.4},
     material: ball4
   };
   let ball_5 = Object {
-    shape: Shape::Sphere {center: Position3::new_pos(1.6, 0.7, 3.5), radius: 0.4},
+    shape: Shape::Sphere {center: Position3::new_pos(1.6, 1.5, 3.0), radius: 0.4},
     material: ball5
+  };
+  let ball_6 = Object {
+    shape: Shape::Sphere {center: Position3::new_pos(-1.6, 0.5, 2.5), radius: 0.4},
+    material: ball6
+  };
+  let ball_7 = Object {
+    shape: Shape::Sphere {center: Position3::new_pos(-0.8, 0.5, 2.5), radius: 0.4},
+    material: ball7
+  };
+  let ball_8 = Object {
+    shape: Shape::Sphere {center: Position3::new_pos(0.0, 0.5, 2.5), radius: 0.4},
+    material: ball8
+  };
+  let ball_9 = Object {
+    shape: Shape::Sphere {center: Position3::new_pos(0.8, 0.5, 2.5), radius: 0.4},
+    material: ball9
+  };
+  let ball_10 = Object {
+    shape: Shape::Sphere {center: Position3::new_pos(1.6, 0.5, 2.5), radius: 0.4},
+    material: ball10
   };
   let ceiling_light = Object {
     shape: Shape::Parallelogram {position: Vector3::new(-0.67, 3.99, 2.33),
@@ -263,6 +389,6 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
   (vec![l1],
    vec![flooring, ceiling, rsidewall, lsidewall, backwall, frontwall,
          //ball_glass, ball_mirror,
-         ball_1, ball_2, ball_3, ball_4, ball_5,
+         ball_1, ball_2, ball_3, ball_4, ball_5, ball_6, ball_7, ball_8, ball_9, ball_10,
          ceiling_light])
 }

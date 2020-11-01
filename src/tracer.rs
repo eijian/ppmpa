@@ -43,7 +43,7 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
     true  => reflect_diff(uc, m0, objs, l, ph, &is1),
     false => reflect_spec(uc, m0, objs, l, ph, &is1),
   };
-  if (*uc == false || l > 0) && rn > 0.0 {
+  if (*uc == false || l > 0) && is1.mate.surface.store_photon() == true {
     pcs.push(Photon::new(&ph.wl, &Ray::new(&is1.pos, &ph.ray.dir)));
   }
   pcs
@@ -129,7 +129,7 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
   };
 
   mate.emittance * SR_HALF +
-  mate.surface.bsdf(&is1.nvec, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
+  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
 }
 
 fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersection) -> Radiance {
@@ -210,7 +210,7 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
   };
 
   mate.emittance * SR_HALF +
-  mate.surface.bsdf(&is1.nvec, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
+  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
 }
 
 // private

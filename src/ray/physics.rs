@@ -127,6 +127,14 @@ impl Add for Color {
   }
 }
 
+impl Mul<Color> for Color {
+  type Output = Self;
+  
+  fn mul(self, col: Color) -> Self::Output {
+    Color(self.0 * col.0, self.1 * col.1, self.2 * col.2)
+  }
+}
+
 impl Mul<Flt> for Color {
   type Output = Self;
 
