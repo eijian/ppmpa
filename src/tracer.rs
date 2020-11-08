@@ -25,10 +25,12 @@ use super::scene::*;
 const ONE_PI: Flt  = 1.0 / f64::consts::PI;
 const SR_HALF: Flt = 1.0 / (2.0 * f64::consts::PI);
 
+const MAX_TRACE: i32 = 10;
+
 // Photon tracing
 
 pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon) -> Vec<PhotonCache> {
-  if l >= 10 {
+  if l >= MAX_TRACE {
     return vec![]
   }
   
@@ -37,13 +39,49 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
     return vec![]
   }
   let is1 = is.unwrap();
-  let rn = is1.mate.surface.roughness();
-  let i = russian_roulette(&[rn]);
-  let mut pcs = match i > 0 {
-    true  => reflect_diff(uc, m0, objs, l, ph, &is1),
-    false => reflect_spec(uc, m0, objs, l, ph, &is1),
+  let sf = is1.mate.surface;
+  let mut pcs = match sf {
+    Surface::Simple {
+      reflectance,
+      specular_refl,
+      diffuseness,
+      metalness,
+      roughness,
+      density_pow,
+    } => {
+      let rn = sf.roughness();
+      let i = russian_roulette(&[rn]);
+      match i {
+        0 => reflect_diff(uc, m0, objs, l, ph, &is1),
+        _ => reflect_spec(uc, m0, objs, l, ph, &is1),
+      }
+    },
+    Surface::TS {
+      albedo_diff,
+      albedo_spec,
+      scatterness,
+      metalness,
+      roughness,
+      density_pow,
+      alpha,
+    } => {
+      let r_ior = relative_ior_wavelength(&m0.ior, &is1.mate.ior, &ph.wl);
+      /*
+      let rn = sf.roughness();
+      let i = russian_roulette(&[rn]);
+      match i {
+        0 => reflect_diff(uc, m0, objs, l, ph, &is1),
+        _ => reflect_spec(uc, m0, objs, l, ph, &is1),
+      }
+      */
+      match sf.next_direction(&r_ior, &is1.nvec, &ph.ray.dir, &ph.wl) {
+        Some(dir) => trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is1.pos, &dir))),
+        None      => vec![],
+      }
+    },
+    _ => vec![],
   };
-  if (*uc == false || l > 0) && is1.mate.surface.store_photon() == true {
+  if (*uc == false || l > 0) && sf.store_photon() == true {
     pcs.push(Photon::new(&ph.wl, &Ray::new(&is1.pos, &ph.ray.dir)));
   }
   pcs
@@ -51,39 +89,45 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
 
 fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
   let i = russian_roulette(&[is.mate.surface.albedo_diff(&ph.wl)]);
-  if i > 0 {
-    let dr = diffuse_reflection(&is.nvec);
-    trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &dr)))
-  } else{
-    vec![]
+  match i {
+    0 => {
+      let dr = diffuse_reflection(&is.nvec);
+      trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &dr)))
+    },
+    _ => vec![],
   }
 }
 
 fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
-  let f0 = is.mate.surface.albedo_spec(&ph.wl);
   let (rdir, cos0) = specular_reflection(&is.nvec, &ph.ray.dir, &is.mate.surface);
-  let f = f0 + (1.0 - f0) * (1.0 - cos0).powf(5.0);
+  let f = schlick(&is.mate.surface.albedo_spec(&ph.wl), &cos0);
   let j = russian_roulette(&[f]);
-  if j > 0 {
-    trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &rdir)))
-  } else {
-    if is.mate.ior.select_wavelength(&ph.wl) == 0.0 {
-      vec![]
-    } else {
-      reflect_trans(uc, m0, objs, l, ph, is, &cos0)
-    }
+  match j {
+    0 => trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &rdir))),
+    _ => {
+      if is.mate.ior.wavelength(&ph.wl) == 0.0 {
+        vec![]
+      } else {
+        reflect_trans(uc, m0, objs, l, ph, is, &cos0)
+      }
+    },
   }
 }
 
 fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, c0: &Flt) -> Vec<PhotonCache> {
-  let ior = m0.ior.select_wavelength(&ph.wl) / is.mate.ior.select_wavelength(&ph.wl);
-  let tdir = specular_refraction(&ior, c0, &ph.ray.dir, &is.nvec);
-  let m02 = if tdir.dot(&is.nvec) < 0.0 {
-    is.mate
-  } else {
-    M_AIR
-  };
-  trace_photon(uc, &m02, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &tdir)))
+  let ior = m0.ior.wavelength(&ph.wl) / is.mate.ior.wavelength(&ph.wl);
+  let tdir = specular_refraction(&ior, c0, &ph.ray.dir, &is.nvec, &m0.surface);
+  match tdir {
+    Some(tdir) => {
+      let m02 = if tdir.dot(&is.nvec) < 0.0 {
+        is.mate
+      } else {
+        M_AIR
+      };
+      trace_photon(uc, &m02, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &tdir)))
+    },
+    None => vec![]
+  }
 }
 
 // Photon mapping method
@@ -101,7 +145,8 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
   let mate = is1.mate;
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir, &is1.mate.surface);
   let ior = m0.average_ior() / mate.average_ior();
-  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec);
+  //let ior = relative_ior_average(&m0.ior, &mate.ior);
+  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec, &is1.mate.surface);
 
   let di = if *uc {
     let mut rad = Radiance::RADIANCE0;
@@ -120,6 +165,7 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
     false => Radiance::RADIANCE0,
   };
 
+  /*
   let ti = match mate.surface.refract(&cos0) {
     true => {
       let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
@@ -127,6 +173,22 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
     },
     false => Radiance::RADIANCE0,
   };
+*/
+  let ti = match tdir {
+    Some(tdir) => {
+      if mate.surface.refract(&cos0) == true {
+        let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
+        trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
+      } else {
+        Radiance::RADIANCE0
+      }
+    },
+    None => Radiance::RADIANCE0,
+  };
+  
+
+
+  //eprintln!("TI={:?}", ti);
 
   mate.emittance * SR_HALF +
   mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
@@ -187,7 +249,7 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
   let mate = is1.mate;
   let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir, &is1.mate.surface);
   let ior = m0.average_ior() / is1.mate.average_ior();
-  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec);
+  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec, &is1.mate.surface);
 
   let mut di = Radiance::RADIANCE0;
   for lt in lgts {
@@ -196,19 +258,24 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
 
   let ii = cam.ambient;
 
-  let si = match mate.surface.reflect(&cos0) {
-    true  => trace_ray_classic(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir)),
-    false => Radiance::RADIANCE0,
+  let si = if mate.surface.reflect(&cos0) == true {
+    trace_ray_classic(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir))
+  } else {
+    Radiance::RADIANCE0
   };
 
-  let ti = match mate.surface.refract(&cos0) {
-    true => {
-      let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
-      trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
+  let ti = match tdir {
+    Some(tdir) => {
+      if mate.surface.refract(&cos0) == true {
+        let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
+        trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
+      } else {
+        Radiance::RADIANCE0
+      }
     },
-    false => Radiance::RADIANCE0,
+    None => Radiance::RADIANCE0,
   };
-
+  
   mate.emittance * SR_HALF +
   mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
 }
@@ -245,10 +312,17 @@ fn illuminated(os: &Vec<Object>, p: &Position3, n: &Direction3, lds: &Vec<Direct
 }
 
 #[derive(PartialEq)]
+enum InOut {
+  In,
+  Out,
+}
+
+#[derive(PartialEq)]
 struct Intersection {
-  pub pos: Position3,
+  pub pos:  Position3,
   pub nvec: Direction3,
   pub mate: Material,
+  pub io:   InOut,
 }
 
 fn calc_intersection(r: &Ray, os: &Vec<Object>) -> Option<Intersection> {
@@ -284,10 +358,15 @@ fn calc_intersection(r: &Ray, os: &Vec<Object>) -> Option<Intersection> {
     let (t, obj) = iss1.first().unwrap();
     let p = r.target(*t);
     let nvec = obj.shape.get_normal(&p);
-    if nvec == None {
-      None
+    if let Some(mut n) = nvec {
+      if n.dot(&r.dir) > 0.0 {
+        n = -n;
+        Some(Intersection {pos: p, nvec: n, mate: obj.material, io: InOut::Out})
+      } else {
+        Some(Intersection {pos: p, nvec: n, mate: obj.material, io: InOut::In})
+      }
     } else {
-      Some(Intersection {pos: p, nvec: nvec.unwrap(), mate: obj.material})
+      None
     }
   }
 }

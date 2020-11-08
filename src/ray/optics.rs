@@ -144,7 +144,7 @@ fn rabs(d: Flt) -> Flt {
 // photon
 // --------------------------
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Photon {
   pub wl: Wavelength,
   pub ray: Ray,
@@ -259,6 +259,7 @@ pub fn read_map(nsample: &i32, radius: &Flt) -> (usize, PhotonMap) {
   let mut phs: Vec<Photon> = vec![];
   let mut elems: Vec<&str>;
   for line in contents.lines() {
+    let ln = line.clone();
     elems = line.split(' ').collect();
     let wl = match elems[0] {
       "Red"   => Wavelength::Red,
@@ -272,13 +273,16 @@ pub fn read_map(nsample: &i32, radius: &Flt) -> (usize, PhotonMap) {
     let dx = elems[4].parse::<Flt>().unwrap();
     let dy = elems[5].parse::<Flt>().unwrap();
     let dz = elems[6].parse::<Flt>().unwrap();
+    let r = 
     phs.push(Photon::new(&wl, &Ray::new_from_elem(px, py, pz, dx, dy, dz).unwrap()));
   }
   for p in phs {
+    let p2 = p.clone();
     pmap.add(p.ray.pos.v, p).unwrap();
   }
   (pmap.size(), PhotonMap {power: pw0, nsample: *nsample, radius: *radius, kdtree: pmap})
 }
+
 
 //
 // tests

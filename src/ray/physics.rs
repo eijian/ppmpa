@@ -11,6 +11,7 @@ use rand::Rng;
 use regex::Regex;
 
 use super::*;
+use super::algebra::*;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Wavelength {
@@ -69,6 +70,7 @@ impl Color {
     }
   }
 
+  #[inline(always)]
   pub fn decide_wavelength(&self, p: Flt) -> Wavelength {
     if p < self.0 {
       Wavelength::Red
@@ -81,7 +83,8 @@ impl Color {
     }
   }
 
-  pub fn select_wavelength(&self, w: &Wavelength) -> Flt {
+  #[inline(always)]
+  pub fn wavelength(&self, w: &Wavelength) -> Flt {
     match w {
       Wavelength::Red   => self.0,
       Wavelength::Green => self.1,
@@ -159,6 +162,67 @@ fn clip_color(a: Flt) -> Flt {
   }
 }
 
+
+// Physics Lows
+
+// OUT: R  reflection dir
+//      T  refraction dir
+//      cos1  reflection cosine
+//      cos2  refraction cosine
+
+pub fn snell(r_ior: &Flt, nvec: &Direction3, vvec: &Direction3) -> (Direction3, Direction3, Flt, Flt) {
+  let c1 = vvec.dot(nvec);
+  let r = (*vvec - (2.0 * c1) * *nvec).normalize().unwrap();
+  let n = r_ior * r_ior;
+  let g = 1.0 / n + c1 * c1 - 1.0;
+  if g > 0.0 {
+    let a = -c1 - f64::sqrt(g);
+    let t = (*r_ior * (*vvec + a * *nvec)).normalize().unwrap();
+    let c2 = f64::sqrt(1.0 - n * (1.0 - c1 * c1));
+    (r, t, c1, c2)
+  } else {
+    // 全反射
+    (r, Vector3::O, c1, 0.0)
+  }
+}
+
+pub fn schlick_color(f0: &Color, cos: &Flt) -> Color {
+  Color::new(schlick(&f0.0, cos), schlick(&f0.1, cos), schlick(&f0.2, cos))
+}
+
+pub fn schlick(f0: &Flt, cos: &Flt) -> Flt {
+  f0 + (1.0 - f0) * (1.0 - cos).powf(5.0)
+}
+
+pub fn relative_ior_color(ior1: &Color, ior2: &Color) -> Color {
+  Color::new(
+    relative_ior(&ior1.0, &ior2.0),
+    relative_ior(&ior1.1, &ior2.1),
+    relative_ior(&ior1.2, &ior2.2)
+  )
+}
+
+pub fn relative_ior_wavelength(ior1: &Color, ior2: &Color, wl: &Wavelength) -> Flt {
+  match wl {
+    Wavelength::Red   => relative_ior(&ior1.0, &ior2.0),
+    Wavelength::Green => relative_ior(&ior1.1, &ior2.1),
+    Wavelength::Blue  => relative_ior(&ior1.2, &ior2.2),
+  }
+}
+
+pub fn relative_ior_average(ior1: &Color, ior2: &Color) -> Flt {
+  let aior1 = (ior1.0 + ior1.1 + ior1.2) / 3.0;
+  let aior2 = (ior2.0 + ior2.1 + ior2.2) / 3.0;
+  relative_ior(&aior1, &aior2)
+}
+
+fn relative_ior(ior1: &Flt, ior2: &Flt) -> Flt {
+  match ior2 {
+    0.0 => 1.0,
+    _   => ior1 / ior2,
+  }
+}
+
 //
 // Russian Roulette
 
@@ -171,7 +235,7 @@ pub fn russian_roulette(ps: &[Flt]) -> usize {
 
 fn check_under(ps: &[Flt], p: Flt) -> usize {
   let mut i: usize = 0;
-  while i < ps.len() && p < ps[i] {
+  while i < ps.len() && p > ps[i] {
     i += 1;
   }
   i

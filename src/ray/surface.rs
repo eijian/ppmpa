@@ -121,17 +121,18 @@ impl Surface {
         density_pow,
         alpha,
       } => {
-        match metalness {
-          0.0 => *scatterness < 1.0,
-          1.0 => false,
-          _   => false,
+        if *metalness == 0.0 {
+          if *scatterness < 1.0 && *albedo_diff != Color::BLACK {
+            return true
+          }
         }
+        false
       },
       _ => false,
     }
   }
 
-  pub fn bsdf(&self, nvec: &Direction3, edir: &Direction3, rdir: &Direction3, tdir: &Direction3,
+  pub fn bsdf(&self, nvec: &Direction3, edir: &Direction3, rdir: &Direction3, tdir: &Option<Direction3>,
               cos0: &Flt, ior: &Flt, di: &Radiance, si: &Radiance, ti: &Radiance)
              -> Radiance {
     //let mate = is.mate;
@@ -164,12 +165,18 @@ impl Surface {
         let vvec = -*edir;
         let hvec = (lvec + vvec).normalize().unwrap();
         let cos_h = hvec.dot(&vvec);
-        let f = reflection_index(albedo_spec, &cos_h);
+        //let f = reflection_index(albedo_spec, &cos_h);
+        let f = reflection_index(albedo_spec, &cos0);
         let f2 = -f;  // (1 - f)
         let i_de = match metalness {
-          0.0 => f2 * *albedo_diff * ONE_PI * (*scatterness * *di + (1.0 - *scatterness) * *ti),
+          0.0 => f2 * *albedo_diff * (
+            *scatterness         * ONE_PI * *di
+            //+ (1.0 - *scatterness) * (ior * ior) * *ti
+            + (1.0 - *scatterness) * *ti
+          ),
           _   => Radiance::RADIANCE0,
         };
+        /*
         let cos_v = nvec.dot(&vvec);   // (v.n)
         //let cos_v = *cos0;             // (v.n)
         let cos_l = nvec.dot(&lvec);   // (l.n)
@@ -183,7 +190,9 @@ impl Surface {
         let g = (1.0 / (1.0 + lam_l)) * (1.0 / (1.0 + lam_v));
         //let i_mt = (d * g / (4.0 * cos_l * cos_v)) * f * *si;
         // そもそもsiにTSモデルなどは適用しない？
+        */
         let i_mt = f * *si;
+        //let i_mt = f * *si + (f2 * ior * ior) * *ti;
         i_de + i_mt
       },
       Surface::DisneyBRDF   => {
@@ -192,6 +201,63 @@ impl Surface {
       Surface::Brady        => {
         Radiance::RADIANCE0
       },
+    }
+  }
+
+  pub fn next_direction(&self, r_ior: &Flt, nvec: &Direction3, vvec: &Direction3, wl: &Wavelength) -> Option<Direction3> {
+    let (rdir, tdir, cos1, cos2) = snell(r_ior, nvec, vvec);
+    let cos = if cos1 > cos2 { cos1 } else { cos2 };
+    match self {
+      Surface::Simple {
+        reflectance,
+        specular_refl,
+        diffuseness,
+        metalness,
+        roughness,
+        density_pow,
+      } => {
+        None
+      },
+      Surface::TS {
+        albedo_diff,
+        albedo_spec,
+        scatterness,
+        metalness,
+        roughness,
+        density_pow,
+        alpha,
+      } => {
+        let f = schlick(&albedo_spec.wavelength(&wl), &cos);
+        // 鏡面反射
+        if russian_roulette(&[f]) == 0 {
+          return match roughness {
+            0.0 => Some(rdir),
+            _   => {
+              let rdir2 = reflection_glossy(nvec, &rdir, density_pow);
+              Some(rdir2)
+            },
+          }
+        }
+        // 吸収
+        if russian_roulette(&[albedo_diff.wavelength(&wl)]) == 1 {
+          return None
+        }
+        // 拡散反射
+        if russian_roulette(&[*scatterness]) == 0 {
+          return Some(diffuse_reflection(nvec))
+        }
+        // 鏡面透過
+        match roughness {
+          0.0 => {
+            Some(tdir)
+          },
+          _   => {
+            let tdir2 = reflection_glossy(&-*nvec, &tdir, density_pow);
+            Some(tdir2)
+          },
+        }
+      },
+      _ => None,
     }
   }
 
@@ -217,8 +283,7 @@ impl Surface {
         density_pow,
         alpha,
       } => {
-        let f0 = albedo_spec.select_wavelength(wl);
-        let f = f0 + (1.0 - f0) * (1.0 - cos).powf(5.0);
+        let f = schlick(&albedo_spec.wavelength(wl), &cos);
         russian_roulette(&[f]) > 0
       },
       _ => true,
@@ -257,7 +322,7 @@ impl Surface {
         metalness,
         roughness,
         density_pow,
-      } => reflectance.select_wavelength(wl),
+      } => reflectance.wavelength(wl),
       Surface::TS {
         albedo_diff,
         albedo_spec,
@@ -266,7 +331,7 @@ impl Surface {
         roughness,
         density_pow,
         alpha,
-      } => albedo_diff.select_wavelength(wl),
+      } => albedo_diff.wavelength(wl),
       _ => 0.0,
     }
   }
@@ -280,7 +345,7 @@ impl Surface {
         metalness,
         roughness,
         density_pow,
-      } => specular_refl.select_wavelength(wl),
+      } => specular_refl.wavelength(wl),
       Surface::TS {
         albedo_diff,
         albedo_spec,
@@ -289,7 +354,7 @@ impl Surface {
         roughness,
         density_pow,
         alpha,
-      } => albedo_spec.select_wavelength(wl),
+      } => albedo_spec.wavelength(wl),
       _ => 0.0,
     }
   }
@@ -375,20 +440,53 @@ pub fn specular_reflection(n: &Direction3, e: &Direction3, sf: &Surface) -> (Dir
       } else {
         (r, c)
       }
-    }
+    },
     None => (*n, 0.0),
   }
 }
 
-pub fn specular_refraction(ior: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3) -> Direction3 {
+pub fn specular_refraction(ior: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3, sf: &Surface) -> Option<Direction3> {
   let r = 1.0 / (ior * ior) + c0 * c0 - 1.0;
-  let a = c0 - f64::sqrt(r);
-  let n2 = if ed.dot(n) > 0.0 { -(*n) } else { *n };
-  let v = (*ior * (*ed + a * n2)).normalize();
-  match v {
-    Some(t) if r >= 0.0 => t,
-    _                   => Vector3::O,
+  if r < 0.0 {
+    return None
   }
+  let a = c0 - f64::sqrt(r);
+
+  let n2 = match sf {
+    Surface::Simple {
+      reflectance,
+      specular_refl,
+      diffuseness,
+      metalness,
+      roughness,
+      density_pow,
+    } => {
+      if *roughness == 0.0 {
+        *n
+      } else {
+        let r = reflection_glossy(n, ed, density_pow);
+        (r - *ed).normalize().unwrap()
+      }
+    },
+    Surface::TS {
+      albedo_diff,
+      albedo_spec,
+      scatterness,
+      metalness,
+      roughness,
+      density_pow,
+      alpha,
+    } => {
+      if *roughness == 0.0 {
+        *n
+      } else {
+        let r = reflection_glossy(n, ed, density_pow);
+        (r - *ed).normalize().unwrap()
+      }
+    },
+    _ => *n,
+  };
+  (*ior * (*ed + a * n2)).normalize()
 }
 
 
@@ -401,12 +499,20 @@ pub fn specular_refraction(ior: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3)
 //   z = sin(2 pi xi2) sqrt(1 - xi1^(2/n+1))
 //     where xi1 = cos (w.r) ^ 10 ^ (5 x (1 - sqrt(roughness)))
 pub fn reflection_glossy(nvec: &Direction3, rvec: &Direction3, pw: &Flt) -> Direction3 {
-  let uvec = Vector3::new(0.00424, 1.0, 0.00764).cross(&rvec).normalize().unwrap();
+  let uvec0 = Vector3::new(0.00424, 1.0, 0.00764).cross(&rvec).normalize();
+  let uvec = match uvec0 {
+    Some(v) => v,
+    None    => {
+      Vector3::new(1.0, 0.00424, 0.00764).cross(&rvec).normalize().unwrap()
+    },
+  };
   let vvec = uvec.cross(rvec);
   let mut rng = rand::thread_rng();
   // 試行として入射角に応じて反射ベクトルの分散度を変化させる(cosを掛ける)
-  let cos = nvec.dot(&rvec);
-  let xi1 = (rng.gen_range(0.0, 1.0) as Flt).powf(pw * cos);
+  let c0 = nvec.dot(&rvec);
+  //if c0 < 0.0 { eprintln!("COS is Minus: {}", c0)}
+  let xi0 = rng.gen_range(0.0, 1.0) as Flt;
+  let xi1 = xi0.powf(pw * c0);
   let xi2 = 2.0 * f64::consts::PI * rng.gen_range(0.0, 1.0);
 
   let x = f64::cos(xi2) * f64::sqrt(1.0 - xi1 * xi1);
@@ -417,7 +523,10 @@ pub fn reflection_glossy(nvec: &Direction3, rvec: &Direction3, pw: &Flt) -> Dire
   if nvec.dot(&wi) < 0.0 {
     wi = -x * uvec + y * *rvec - z * vvec;
   }
-  wi.normalize().unwrap()
+  match wi.normalize() {
+    Some(v) => v,
+    None    => Vector3::EX,
+  }
 }
 
 // private methods

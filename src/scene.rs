@@ -120,6 +120,7 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
     roughness:    0.0,
   };
   */
+  /*
   let ball10 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
@@ -133,6 +134,32 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
       &1.0,
     ),
   };
+  */
+  let ball10 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    ior:           Color(1.5, 1.5, 1.5),
+    /*
+    surface: Surface::new_simple(
+      &Color(1.0, 1.0, 1.0),
+      &Color(0.05, 0.05, 0.05),
+      &0.0,
+      &0.0,
+      &0.0,
+    ),
+    */
+    surface: Surface::new_ts(
+      //&Color(0.6, 0.35, 0.1),
+      //&Color(0.05, 0.05, 0.05),
+      &Color(1.0, 1.0, 1.0),
+      &Color(0.05, 0.05, 0.05),
+      &0.0,
+      &0.0,
+      &0.0,
+    ),
+
+  };
+
   let ball9 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
@@ -195,12 +222,12 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
       &0.6,
     ),
   };
-  /*
+
   let ball5 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
-    surface: Surface::new_simple(
+    surface: Surface::new_ts(
       &Color(0.0, 0.0, 0.0),
       &Color(0.78, 0.78, 0.78),
       &0.0,
@@ -208,7 +235,7 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
       &0.5,
     ),
   };
-  */
+  /*
   let ball5 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
@@ -222,6 +249,33 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
       &0.9,
     ),
   };
+  */
+  /*
+  let ball5 = Material {
+    emittance: Radiance(0.0, 0.0, 0.0),
+    transmittance: Color(0.0, 0.0, 0.0),
+    //ior:           Color(0.0, 0.0, 0.0),
+    ior:           Color(2.0, 2.0, 2.0),
+    /*
+    surface: Surface::new_simple(
+      &Color(0.6, 0.35, 0.1),
+      &Color(0.08, 0.08, 0.08),
+      &0.5,
+      &0.0,
+      &0.5,
+    ),
+    */
+    surface: Surface::new_ts(
+      //&Color(0.6, 0.35, 0.1),
+      //&Color(0.05, 0.05, 0.05),
+      &Color(1.0, 1.0, 1.0),
+      &Color(0.05, 0.05, 0.05),
+      &0.0,
+      &0.0,
+      &0.0,
+    ),
+  };
+  */
   let ball4 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
@@ -276,7 +330,7 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
   let ball1 = Material {
     emittance: Radiance(0.0, 0.0, 0.0),
     transmittance: Color(0.0, 0.0, 0.0),
-    ior:           Color(0.0, 0.0, 0.0),
+    ior:           Color(1.5, 1.5, 1.5),
     //surface: Surface::new_simple(
     surface: Surface::new_ts(
       &Color(0.6, 0.35, 0.1),
@@ -290,7 +344,7 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
 
   let mparal = Material {
     //emittance: Radiance(0.7958, 0.7958, 0.7958),
-    emittance: Radiance(0.2, 0.2, 0.2),
+    emittance: Radiance(0.15, 0.15, 0.15),
     transmittance: Color(0.0, 0.0, 0.0),
     ior:           Color(0.0, 0.0, 0.0),
     surface: Surface::new_simple(
