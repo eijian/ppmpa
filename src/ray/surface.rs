@@ -160,7 +160,7 @@ impl Surface {
         roughness,
         density_pow,
         alpha,
-      }    => {
+      } => {
         let lvec = *rdir;
         let vvec = -*edir;
         let hvec = (lvec + vvec).normalize().unwrap();
@@ -171,7 +171,8 @@ impl Surface {
         let i_de = match metalness {
           0.0 => f2 * *albedo_diff * (
             *scatterness         * ONE_PI * *di
-            //+ (1.0 - *scatterness) * (ior * ior) * *ti
+            // 屈折率の異なる物質に入射した光の輝度は1/eta^2となるらしい
+            //+ (1.0 - *scatterness) * 1.0 / (ior * ior) * *ti
             + (1.0 - *scatterness) * *ti
           ),
           _   => Radiance::RADIANCE0,
@@ -204,9 +205,15 @@ impl Surface {
     }
   }
 
-  pub fn next_direction(&self, r_ior: &Flt, nvec: &Direction3, vvec: &Direction3, wl: &Wavelength) -> Option<Direction3> {
-    let (rdir, tdir, cos1, cos2) = snell(r_ior, nvec, vvec);
-    let cos = if cos1 > cos2 { cos1 } else { cos2 };
+  // OUT: dir  next ray direction. if dir is None, the photon is absorbed.
+  //      T/F  true=reflection, false=refraction
+
+  pub fn next_direction(&self, eta: &Flt, nvec: &Direction3, vvec: &Direction3, wl: &Wavelength) -> Option<(Direction3, bool)> {
+    let (rdir0, cos1) = specular_reflection(nvec, vvec);
+    let rdir = reflection_glossy(nvec, &rdir0, &self.power_glossy());
+    let hvec = (rdir - *vvec).normalize().unwrap();
+    let (tdir, cos2) = specular_refraction(&hvec, vvec, eta);
+    let cos = if cos1 < cos2 { cos1 } else { cos2 };
     match self {
       Surface::Simple {
         reflectance,
@@ -230,13 +237,7 @@ impl Surface {
         let f = schlick(&albedo_spec.wavelength(&wl), &cos);
         // 鏡面反射
         if russian_roulette(&[f]) == 0 {
-          return match roughness {
-            0.0 => Some(rdir),
-            _   => {
-              let rdir2 = reflection_glossy(nvec, &rdir, density_pow);
-              Some(rdir2)
-            },
-          }
+          return Some((rdir, true))
         }
         // 吸収
         if russian_roulette(&[albedo_diff.wavelength(&wl)]) == 1 {
@@ -244,17 +245,12 @@ impl Surface {
         }
         // 拡散反射
         if russian_roulette(&[*scatterness]) == 0 {
-          return Some(diffuse_reflection(nvec))
+          return Some((diffuse_reflection(nvec), true))
         }
         // 鏡面透過
-        match roughness {
-          0.0 => {
-            Some(tdir)
-          },
-          _   => {
-            let tdir2 = reflection_glossy(&-*nvec, &tdir, density_pow);
-            Some(tdir2)
-          },
+        match tdir {
+          Some(tdir) => Some((tdir, false)),
+          _ => None,
         }
       },
       _ => None,
@@ -382,8 +378,28 @@ impl Surface {
     }
   }
 
-
-
+  pub fn power_glossy(&self) -> Flt {
+    match self {
+      Surface::Simple {
+        reflectance,
+        specular_refl,
+        diffuseness,
+        metalness,
+        roughness,
+        density_pow,
+      } => *density_pow,
+      Surface::TS {
+        albedo_diff,
+        albedo_spec,
+        scatterness,
+        metalness,
+        roughness,
+        density_pow,
+        alpha,
+      } => *density_pow,
+      _ => 0.0,
+    }
+  }
 }
 
 // utility functions
@@ -400,6 +416,7 @@ pub fn diffuse_reflection(n: &Direction3) -> Direction3 {
   }
 }
 
+/*
 pub fn specular_reflection(n: &Direction3, e: &Direction3, sf: &Surface) -> (Direction3, Flt) {
   let c = e.dot(n);
   let v = (*e - (2.0 * c) * *n).normalize();
@@ -488,46 +505,7 @@ pub fn specular_refraction(ior: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3,
   };
   (*ior * (*ed + a * n2)).normalize()
 }
-
-
-// glossyな表面の反射ベクトルの求め方
-//   http://www.raytracegroundup.com/downloads/Chapter25.pdf
-//   https://cg.informatik.uni-freiburg.de/course_notes/graphics2_08_renderingEquation.pdf
-//   https://graphics.cg.uni-saarland.de/courses/ris-2018/slides/09_BRDF_LightSampling.pdf
-//   x = cos(2 pi xi2) sqrt(1 - xi1^(2/n+1))
-//   y = xi1^(1/n+1)
-//   z = sin(2 pi xi2) sqrt(1 - xi1^(2/n+1))
-//     where xi1 = cos (w.r) ^ 10 ^ (5 x (1 - sqrt(roughness)))
-pub fn reflection_glossy(nvec: &Direction3, rvec: &Direction3, pw: &Flt) -> Direction3 {
-  let uvec0 = Vector3::new(0.00424, 1.0, 0.00764).cross(&rvec).normalize();
-  let uvec = match uvec0 {
-    Some(v) => v,
-    None    => {
-      Vector3::new(1.0, 0.00424, 0.00764).cross(&rvec).normalize().unwrap()
-    },
-  };
-  let vvec = uvec.cross(rvec);
-  let mut rng = rand::thread_rng();
-  // 試行として入射角に応じて反射ベクトルの分散度を変化させる(cosを掛ける)
-  let c0 = nvec.dot(&rvec);
-  //if c0 < 0.0 { eprintln!("COS is Minus: {}", c0)}
-  let xi0 = rng.gen_range(0.0, 1.0) as Flt;
-  let xi1 = xi0.powf(pw * c0);
-  let xi2 = 2.0 * f64::consts::PI * rng.gen_range(0.0, 1.0);
-
-  let x = f64::cos(xi2) * f64::sqrt(1.0 - xi1 * xi1);
-  let y = xi1;
-  let z = f64::sin(xi2) * f64::sqrt(1.0 - xi1 * xi1);
-
-  let mut wi = x * uvec + y * *rvec + z * vvec;
-  if nvec.dot(&wi) < 0.0 {
-    wi = -x * uvec + y * *rvec - z * vvec;
-  }
-  match wi.normalize() {
-    Some(v) => v,
-    None    => Vector3::EX,
-  }
-}
+*/
 
 // private methods
 

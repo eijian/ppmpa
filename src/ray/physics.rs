@@ -163,8 +163,131 @@ fn clip_color(a: Flt) -> Flt {
 }
 
 
-// Physics Lows
+// Physics Lows -----------------
 
+// relative of IoR
+//   n1: IoR of src
+//   n2: IoR of dst
+//   eta = n2 / n1
+
+#[inline(always)]
+pub fn relative_ior_color(ior1: &Color, ior2: &Color) -> Color {
+  Color::new(
+    relative_ior(&ior1.0, &ior2.0),
+    relative_ior(&ior1.1, &ior2.1),
+    relative_ior(&ior1.2, &ior2.2)
+  )
+}
+
+#[inline(always)]
+pub fn relative_ior_wavelength(ior1: &Color, ior2: &Color, wl: &Wavelength) -> Flt {
+  match wl {
+    Wavelength::Red   => relative_ior(&ior1.0, &ior2.0),
+    Wavelength::Green => relative_ior(&ior1.1, &ior2.1),
+    Wavelength::Blue  => relative_ior(&ior1.2, &ior2.2),
+  }
+}
+
+#[inline(always)]
+pub fn relative_ior_average(ior1: &Color, ior2: &Color) -> Flt {
+  let aior1 = (ior1.0 + ior1.1 + ior1.2) / 3.0;
+  let aior2 = (ior2.0 + ior2.1 + ior2.2) / 3.0;
+  relative_ior(&aior1, &aior2)
+}
+
+// eta = n2 / n1
+#[inline(always)]
+fn relative_ior(ior1: &Flt, ior2: &Flt) -> Flt {
+  match ior1 {
+    0.0 => 1.0,
+    _   => ior2 / ior1,
+  }
+}
+
+// specular reflection
+// IN : nvec  = Normal vector (from surface)
+//      vvec  = eye direction (to surface)
+// OUT: rvec  = reflection vector (from surface)
+//      cos1  = (rvec, nvec)
+// 条件: cos = (N, V) は負にならないといけない。万が一そうでなければNを返す。
+
+pub fn specular_reflection(nvec: &Direction3, vvec: &Direction3) -> (Direction3, Flt) {
+  let cos = -vvec.dot(nvec);  // -(E,N)
+  if cos < 0.0 {
+    return (*nvec, cos)
+  }
+  let rvec = (*vvec + 2.0 * cos * *nvec).normalize().unwrap();
+  (rvec, cos)
+}
+
+// glossyな表面の反射ベクトルの求め方
+//   http://www.raytracegroundup.com/downloads/Chapter25.pdf
+//   https://cg.informatik.uni-freiburg.de/course_notes/graphics2_08_renderingEquation.pdf
+//   https://graphics.cg.uni-saarland.de/courses/ris-2018/slides/09_BRDF_LightSampling.pdf
+//   x = cos(2 pi xi2) sqrt(1 - xi1^(2/n+1))
+//   y = xi1^(1/n+1)
+//   z = sin(2 pi xi2) sqrt(1 - xi1^(2/n+1))
+//     where xi1 = cos (w.r) ^ 10 ^ (5 x (1 - sqrt(roughness)))
+
+pub fn reflection_glossy(nvec: &Direction3, rvec: &Direction3, pw: &Flt) -> Direction3 {
+  let uvec0 = Vector3::new(0.00424, 1.0, 0.00764).cross(&rvec).normalize();
+  let uvec = match uvec0 {
+    Some(v) => v,
+    None    => {
+      Vector3::new(1.0, 0.00424, 0.00764).cross(&rvec).normalize().unwrap()
+    },
+  };
+  let vvec = uvec.cross(rvec);
+  let mut rng = rand::thread_rng();
+  // 試行として入射角に応じて反射ベクトルの分散度を変化させる(cosを掛ける)
+  let c0 = nvec.dot(&rvec);
+  //if c0 < 0.0 { eprintln!("COS is Minus: {}", c0)}
+  let xi0 = rng.gen_range(0.0, 1.0) as Flt;
+  let xi1 = xi0.powf(pw * c0);
+  let xi2 = 2.0 * f64::consts::PI * rng.gen_range(0.0, 1.0);
+
+  let x = f64::cos(xi2) * f64::sqrt(1.0 - xi1 * xi1);
+  let y = xi1;
+  let z = f64::sin(xi2) * f64::sqrt(1.0 - xi1 * xi1);
+
+  let mut wi = x * uvec + y * *rvec + z * vvec;
+  if nvec.dot(&wi) < 0.0 {
+    wi = -x * uvec + y * *rvec - z * vvec;
+  }
+  match wi.normalize() {
+    Some(v) => v,
+    None    => Vector3::EX,
+  }
+}
+
+// specular_rafraction
+// IN : nvec  = Normal vector (from surface)
+//      vvec  = eye direction (to surface)
+//      eta   = relative of IoR (eta = n2 / n1)
+// OUT: tvec  = refraction vector (from surface)
+//      cos2  = (tvec, -nvec)
+
+pub fn specular_refraction(nvec: &Direction3, vvec: &Direction3, eta: &Flt) -> (Option<Direction3>, Flt) {
+  let cos1 = -vvec.dot(nvec); // -(E,N)
+  if cos1 < 0.0 {
+    return (None, 0.0)
+  }
+  let sq_eta = eta * eta;
+  let sq_cos = cos1 * cos1;
+  let g0 = sq_eta + sq_cos - 1.0;
+  if g0 < 0.0 {
+    (None, 0.0)
+  } else {
+    let g = f64::sqrt(g0);
+    let tvec = (1.0 / eta * (*vvec + (cos1 - g) * *nvec)).normalize();
+    (tvec, g / eta)
+  }
+}
+
+// Snell's low
+// IN : r_ior = relative of IoR (n = n2/n1)
+//      nvec  = Normal vector (from surface)
+//      vvec  = eye direction (to surface)
 // OUT: R  reflection dir
 //      T  refraction dir
 //      cos1  reflection cosine
@@ -194,48 +317,18 @@ pub fn schlick(f0: &Flt, cos: &Flt) -> Flt {
   f0 + (1.0 - f0) * (1.0 - cos).powf(5.0)
 }
 
-pub fn relative_ior_color(ior1: &Color, ior2: &Color) -> Color {
-  Color::new(
-    relative_ior(&ior1.0, &ior2.0),
-    relative_ior(&ior1.1, &ior2.1),
-    relative_ior(&ior1.2, &ior2.2)
-  )
-}
-
-pub fn relative_ior_wavelength(ior1: &Color, ior2: &Color, wl: &Wavelength) -> Flt {
-  match wl {
-    Wavelength::Red   => relative_ior(&ior1.0, &ior2.0),
-    Wavelength::Green => relative_ior(&ior1.1, &ior2.1),
-    Wavelength::Blue  => relative_ior(&ior1.2, &ior2.2),
-  }
-}
-
-pub fn relative_ior_average(ior1: &Color, ior2: &Color) -> Flt {
-  let aior1 = (ior1.0 + ior1.1 + ior1.2) / 3.0;
-  let aior2 = (ior2.0 + ior2.1 + ior2.2) / 3.0;
-  relative_ior(&aior1, &aior2)
-}
-
-fn relative_ior(ior1: &Flt, ior2: &Flt) -> Flt {
-  match ior2 {
-    0.0 => 1.0,
-    _   => ior1 / ior2,
-  }
-}
-
 //
 // Russian Roulette
 
 pub fn russian_roulette(ps: &[Flt]) -> usize {
   let mut rng = rand::thread_rng();
   let p: Flt = rng.gen_range(0.0, 1.0);
-
-  check_under(ps, p)
+  check_under(ps, &p)
 }
 
-fn check_under(ps: &[Flt], p: Flt) -> usize {
+fn check_under(ps: &[Flt], p: &Flt) -> usize {
   let mut i: usize = 0;
-  while i < ps.len() && p > ps[i] {
+  while i < ps.len() && *p > ps[i] {
     i += 1;
   }
   i
@@ -300,7 +393,14 @@ mod tests {
 
     let c8 = Color::from_str(&format!("{}", c5));
     assert_eq!(c8.unwrap(), Color(0.2,0.3,0.8));
+  }
 
+  #[test]
+  fn test_ior() {
+    assert_eq!(relative_ior(1.0, 1.5), 0.0);
+
+    let ior1 = Color::new(1.0, 1.1, 1.2);
+    let ior2 = Color::new(1.5, 1.6, 1.7);
 
   }
 

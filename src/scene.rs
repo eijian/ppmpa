@@ -155,9 +155,9 @@ pub fn read_scene(_file: &str) -> (Vec<Light>, Vec<Object>) {
       &Color(0.05, 0.05, 0.05),
       &0.0,
       &0.0,
-      &0.0,
+      &0.2,
     ),
-
+    
   };
 
   let ball9 = Material {

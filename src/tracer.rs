@@ -65,7 +65,7 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
       density_pow,
       alpha,
     } => {
-      let r_ior = relative_ior_wavelength(&m0.ior, &is1.mate.ior, &ph.wl);
+      let eta = relative_ior_wavelength(&m0.ior, &is1.mate.ior, &ph.wl);
       /*
       let rn = sf.roughness();
       let i = russian_roulette(&[rn]);
@@ -74,8 +74,11 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
         _ => reflect_spec(uc, m0, objs, l, ph, &is1),
       }
       */
-      match sf.next_direction(&r_ior, &is1.nvec, &ph.ray.dir, &ph.wl) {
-        Some(dir) => trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is1.pos, &dir))),
+      match sf.next_direction(&eta, &is1.nvec, &ph.ray.dir, &ph.wl) {
+        Some((dir, m)) => {
+          let mate = if m == true { m0 } else { &is1.mate };
+          trace_photon(uc, mate, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is1.pos, &dir)))
+        },
         None      => vec![],
       }
     },
@@ -99,8 +102,9 @@ fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
 }
 
 fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
-  let (rdir, cos0) = specular_reflection(&is.nvec, &ph.ray.dir, &is.mate.surface);
-  let f = schlick(&is.mate.surface.albedo_spec(&ph.wl), &cos0);
+  let (rdir, cos1) = specular_reflection(&is.nvec, &ph.ray.dir);
+
+  let f = schlick(&is.mate.surface.albedo_spec(&ph.wl), &cos1);
   let j = russian_roulette(&[f]);
   match j {
     0 => trace_photon(uc, m0, objs, l+1, &Photon::new(&ph.wl, &Ray::new(&is.pos, &rdir))),
@@ -108,15 +112,15 @@ fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
       if is.mate.ior.wavelength(&ph.wl) == 0.0 {
         vec![]
       } else {
-        reflect_trans(uc, m0, objs, l, ph, is, &cos0)
+        reflect_trans(uc, m0, objs, l, ph, is, &cos1)
       }
     },
   }
 }
 
 fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, c0: &Flt) -> Vec<PhotonCache> {
-  let ior = m0.ior.wavelength(&ph.wl) / is.mate.ior.wavelength(&ph.wl);
-  let tdir = specular_refraction(&ior, c0, &ph.ray.dir, &is.nvec, &m0.surface);
+  let eta = relative_ior_wavelength(&m0.ior, &is.mate.ior, &ph.wl);
+  let (tdir, cos2) = specular_refraction(&is.nvec, &ph.ray.dir, &eta);
   match tdir {
     Some(tdir) => {
       let m02 = if tdir.dot(&is.nvec) < 0.0 {
@@ -132,23 +136,14 @@ fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Phot
 
 // Photon mapping method
 
-pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, pmap: &PhotonMap, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray) -> Radiance {
-  if l >= 10 {
-    return Radiance::RADIANCE0
-  }
+pub fn trace_ray(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>, lgts: &Vec<Light>, r: &Ray, pmap: &PhotonMap, radius: &Flt, uc: &bool) -> Radiance {
+  if l >= MAX_TRACE { return Radiance::RADIANCE0 }
   let is = calc_intersection(r, objs);
-  if is == None {
-    return Radiance::RADIANCE0
-  }
-
+  if is == None { return Radiance::RADIANCE0 }
   let is1 = is.unwrap();
-  let mate = is1.mate;
-  let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir, &is1.mate.surface);
-  let ior = m0.average_ior() / mate.average_ior();
-  //let ior = relative_ior_average(&m0.ior, &mate.ior);
-  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec, &is1.mate.surface);
-
-  let di = if *uc {
+  
+  // L_diffuse
+  let mut di = if *uc {
     let mut rad = Radiance::RADIANCE0;
     for lt in lgts {
       rad = rad + get_radiance_from_light(objs, &is1.pos, &is1.nvec, lt);
@@ -157,41 +152,38 @@ pub fn trace_ray(uc: &bool, radius: &Flt, cam: &Camera, m0: &Material, l: i32, p
   } else {
     Radiance::RADIANCE0
   };
+  di = di + estimate_radiance(&radius, &cam, &pmap, &is1);
+   
+  let mate = is1.mate;
 
-  let ii = estimate_radiance(&radius, &cam, &pmap, &is1);
- 
-  let si = match mate.surface.reflect(&cos0) {
-    true  => trace_ray(uc, radius, cam, m0, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &rdir)),
-    false => Radiance::RADIANCE0,
-  };
-
-  /*
-  let ti = match mate.surface.refract(&cos0) {
-    true => {
-      let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
-      trace_ray(uc, radius, cam, &m02, l+1, pmap, objs, lgts, &Ray::new(&is1.pos, &tdir))
-    },
-    false => Radiance::RADIANCE0,
-  };
-*/
-  let ti = match tdir {
-    Some(tdir) => {
-      if mate.surface.refract(&cos0) == true {
-        let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
-        trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
-      } else {
-        Radiance::RADIANCE0
-      }
-    },
-    None => Radiance::RADIANCE0,
+  // L_spec
+  let (rdir0, cos1) = specular_reflection(&is1.nvec, &r.dir);
+  let rdir = reflection_glossy(&is1.nvec, &rdir0, &mate.surface.power_glossy());
+  let si = if mate.surface.reflect(&cos1) == true {
+    trace_ray(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir), pmap, radius, uc)
+  } else {
+    Radiance::RADIANCE0
   };
   
+  // L_trans
+  let eta = relative_ior_average(&m0.ior, &mate.ior);
+  let hvec = (rdir - r.dir).normalize().unwrap();
+  let (tdir, cos2) = specular_refraction(&hvec, &r.dir, &eta);
+  let ti = match tdir {
+    Some(tdir) if mate.surface.refract(&cos1) == true => {
+      let m02 = match is1.io {
+        InOut::In  => mate,
+        InOut::Out => M_AIR,
+      };
+      trace_ray(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir), pmap, radius, uc)
+    },
+    _ => Radiance::RADIANCE0,
+  };
 
-
-  //eprintln!("TI={:?}", ti);
+  let cos = if cos1 < cos2 { cos1 } else { cos2 };
 
   mate.emittance * SR_HALF +
-  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
+  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos, &eta, &di, &si, &ti)
 }
 
 fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersection) -> Radiance {
@@ -247,37 +239,43 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
 
   let is1 = is.unwrap();
   let mate = is1.mate;
-  let (rdir, cos0) = specular_reflection(&is1.nvec, &r.dir, &is1.mate.surface);
-  let ior = m0.average_ior() / is1.mate.average_ior();
-  let tdir = specular_refraction(&ior, &cos0, &r.dir, &is1.nvec, &is1.mate.surface);
+  let (rdir, cos1) = specular_reflection(&is1.nvec, &r.dir);
 
   let mut di = Radiance::RADIANCE0;
   for lt in lgts {
     di = di + get_radiance_from_light(objs, &is1.pos, &is1.nvec, lt);
   }
+  di = di + cam.ambient; 
 
-  let ii = cam.ambient;
-
-  let si = if mate.surface.reflect(&cos0) == true {
+  let si = if mate.surface.reflect(&cos1) == true {
     trace_ray_classic(cam, m0, l+1, objs, lgts, &Ray::new(&is1.pos, &rdir))
   } else {
     Radiance::RADIANCE0
   };
 
+  let eta = relative_ior_average(&m0.ior, &mate.ior);
+  let (tdir, cos2) = specular_refraction(&is1.nvec, &r.dir, &eta);
   let ti = match tdir {
-    Some(tdir) => {
-      if mate.surface.refract(&cos0) == true {
-        let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
-        trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
-      } else {
-        Radiance::RADIANCE0
-      }
+    Some(tdir) if mate.surface.refract(&cos1) == true => {
+      let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
+      trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
     },
-    None => Radiance::RADIANCE0,
+    _ => Radiance::RADIANCE0,
+  };
+
+  // L_trans
+  let eta = relative_ior_average(&m0.ior, &mate.ior);
+  let (tdir, cos2) = specular_refraction(&is1.nvec, &r.dir, &eta);
+  let ti = match tdir {
+    Some(tdir) if mate.surface.refract(&cos1) == true => {
+      let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
+      trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
+    },
+    _ => Radiance::RADIANCE0,
   };
   
   mate.emittance * SR_HALF +
-  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos0, &ior, &(di + ii), &si, &ti)
+  mate.surface.bsdf(&is1.nvec, &r.dir, &rdir, &tdir, &cos1, &eta, &di, &si, &ti)
 }
 
 // private

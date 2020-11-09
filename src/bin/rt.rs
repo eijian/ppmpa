@@ -42,7 +42,7 @@ fn main() {
   eprintln!("finished reading map: {} photons, {:?}.", msize, t1);
 
   let rays = cam.screen_map.iter().map(|p| cam.generate_ray(p));
-  let image: Vec<Radiance> = rays.map(|r| trace_ray(&uc, &radius, &cam, &M_AIR, 0, &photonmap, &objs, &lgts, &r)).collect();
+  let image: Vec<Radiance> = rays.map(|r| trace_ray(&cam, &M_AIR, 0, &objs, &lgts, &r, &photonmap, &radius, &uc)).collect();
 
   for l in cam.pnm_header() {
     println!("{}", l);
