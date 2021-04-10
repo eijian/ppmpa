@@ -1,6 +1,6 @@
 [package]
 name = "ppmpa"
-version = "0.1.0"
+version = "2.7.0"
 authors = ["eiji"]
 edition = "2018"
 

@@ -96,8 +96,8 @@ pub fn read_camera(_file: &str) -> Camera {
   let focus = 7.0;
   let focallen: Flt = 50.0 / 1000.0;
   let fnumber: Flt = 5.0;
-  let xreso = 512;
-  let yreso = 512;
+  let xreso = 256;
+  let yreso = 256;
   let aa_flag = true;
   let prog_flag = true;
   let blur_flag = false;

@@ -214,7 +214,7 @@ fn relative_ior(ior1: &Flt, ior2: &Flt) -> Flt {
 pub fn specular_reflection(nvec: &Direction3, vvec: &Direction3) -> (Direction3, Flt) {
   let cos = -vvec.dot(nvec);  // -(E,N)
   if cos < 0.0 {
-    return (*nvec, cos)
+    return (*nvec, -cos)
   }
   let rvec = (*vvec + 2.0 * cos * *nvec).normalize().unwrap();
   (rvec, cos)

@@ -66,14 +66,6 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
       alpha,
     } => {
       let eta = relative_ior_wavelength(&m0.ior, &is1.mate.ior, &ph.wl);
-      /*
-      let rn = sf.roughness();
-      let i = russian_roulette(&[rn]);
-      match i {
-        0 => reflect_diff(uc, m0, objs, l, ph, &is1),
-        _ => reflect_spec(uc, m0, objs, l, ph, &is1),
-      }
-      */
       match sf.next_direction(&eta, &is1.nvec, &ph.ray.dir, &ph.wl) {
         Some((dir, m)) => {
           let mate = if m == true { m0 } else { &is1.mate };
@@ -81,6 +73,7 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
         },
         None      => vec![],
       }
+      
     },
     _ => vec![],
   };
