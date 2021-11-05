@@ -5,7 +5,6 @@ use std::iter::*;
 use std::vec::*;
 use std::cmp::*;
 
-//use kdtree::KdTree;
 use kdtree::distance::squared_euclidean;
 
 use super::ray::*;
@@ -17,9 +16,9 @@ use super::ray::light::*;
 use super::ray::material::*;
 use super::ray::physics::*;
 use super::ray::surface::*;
-//use super::ray::optics::*;
 
 use super::camera::*;
+use super::photonmap::*;
 use super::scene::*;
 
 const ONE_PI: Flt  = 1.0 / f64::consts::PI;
@@ -29,7 +28,7 @@ const MAX_TRACE: i32 = 10;
 
 // Photon tracing
 
-pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon) -> Vec<PhotonCache> {
+pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon) -> Vec<Photon> {
   if l >= MAX_TRACE {
     return vec![]
   }
@@ -42,28 +41,26 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
   let sf = is1.mate.surface;
   let mut pcs = match sf {
     Surface::Simple {
-      reflectance,
-      specular_refl,
-      diffuseness,
-      metalness,
-      roughness,
-      density_pow,
+      reflectance: _,
+      specular_refl: _,
+      diffuseness: _,
+      metalness: _,
+      roughness: _,
+      density_pow: _,
     } => {
-      let rn = sf.roughness();
-      let i = russian_roulette(&[rn]);
-      match i {
+      match russian_roulette(&[sf.roughness()]) {
         0 => reflect_diff(uc, m0, objs, l, ph, &is1),
         _ => reflect_spec(uc, m0, objs, l, ph, &is1),
       }
     },
     Surface::TS {
-      albedo_diff,
-      albedo_spec,
-      scatterness,
-      metalness,
-      roughness,
-      density_pow,
-      alpha,
+      albedo_diff: _,
+      albedo_spec: _,
+      scatterness: _,
+      metalness: _,
+      roughness: _,
+      density_pow: _,
+      alpha: _,
     } => {
       let eta = relative_ior_wavelength(&m0.ior, &is1.mate.ior, &ph.wl);
       match sf.next_direction(&eta, &is1.nvec, &ph.ray.dir, &ph.wl) {
@@ -83,7 +80,7 @@ pub fn trace_photon(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &P
   pcs
 }
 
-fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
+fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<Photon> {
   let i = russian_roulette(&[is.mate.surface.albedo_diff(&ph.wl)]);
   match i {
     0 => {
@@ -94,7 +91,7 @@ fn reflect_diff(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
   }
 }
 
-fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<PhotonCache> {
+fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection) -> Vec<Photon> {
   let (rdir, cos1) = specular_reflection(&is.nvec, &ph.ray.dir);
 
   let f = schlick(&is.mate.surface.albedo_spec(&ph.wl), &cos1);
@@ -111,9 +108,9 @@ fn reflect_spec(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photo
   }
 }
 
-fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, c0: &Flt) -> Vec<PhotonCache> {
+fn reflect_trans(uc: &bool, m0: &Material, objs: &Vec<Object>, l: i32, ph: &Photon, is: &Intersection, _c0: &Flt) -> Vec<Photon> {
   let eta = relative_ior_wavelength(&m0.ior, &is.mate.ior, &ph.wl);
-  let (tdir, cos2) = specular_refraction(&is.nvec, &ph.ray.dir, &eta);
+  let (tdir, _cos2) = specular_refraction(&is.nvec, &ph.ray.dir, &eta);
   match tdir {
     Some(tdir) => {
       let m02 = if tdir.dot(&is.nvec) < 0.0 {
@@ -191,7 +188,7 @@ fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersec
         PhotonFilter::Cone  => filter_cone(&d, &radius),
         PhotonFilter::Gauss => filter_gauss(&d, &radius),
       };
-      rad = rad + photoninfo_to_radiance(&is.nvec, &(wt * pmap.power), p2);
+      rad = rad + photon_to_radiance(&is.nvec, &(wt * pmap.power), p2);
     }
     rad * (ONE_PI / radius)
   }
@@ -246,19 +243,9 @@ pub fn trace_ray_classic(cam: &Camera, m0: &Material, l: i32, objs: &Vec<Object>
     Radiance::RADIANCE0
   };
 
-  let eta = relative_ior_average(&m0.ior, &mate.ior);
-  let (tdir, cos2) = specular_refraction(&is1.nvec, &r.dir, &eta);
-  let ti = match tdir {
-    Some(tdir) if mate.surface.refract(&cos1) == true => {
-      let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };
-      trace_ray_classic(cam, &m02, l+1, objs, lgts, &Ray::new(&is1.pos, &tdir))
-    },
-    _ => Radiance::RADIANCE0,
-  };
-
   // L_trans
   let eta = relative_ior_average(&m0.ior, &mate.ior);
-  let (tdir, cos2) = specular_refraction(&is1.nvec, &r.dir, &eta);
+  let (tdir, _cos2) = specular_refraction(&is1.nvec, &r.dir, &eta);
   let ti = match tdir {
     Some(tdir) if mate.surface.refract(&cos1) == true => {
       let m02 = if tdir.dot(&is1.nvec) < 0.0 { mate } else { M_AIR };

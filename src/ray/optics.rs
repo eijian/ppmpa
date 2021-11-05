@@ -1,21 +1,12 @@
 // optics
 
 use core::num::ParseFloatError;
+use regex::Regex;
 use std::fmt;
-//use std::io::BufReader;
-use std::io;
-use std::io::prelude::*;
-use std::io::BufReader;
 use std::ops::Add;
 use std::ops::Sub;
 use std::ops::Mul;
 use std::str::*;
-//use std::string::*;
-
-use kdtree::KdTree;
-//use kdtree::ErrorKind;
-//use kdtree::distance::squared_euclidean;
-use regex::Regex;
 
 use super::*;
 use super::algebra::*;
@@ -28,6 +19,10 @@ pub enum PhotonFilter {
   Cone,
   Gauss,
 }
+
+// --------------
+// Radiance
+// --------------
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Radiance(pub Flt, pub Flt, pub Flt);
@@ -82,7 +77,6 @@ impl Mul<Radiance> for Flt {
     Radiance(self * rad.0, self * rad.1, self * rad.2)
   }
 }
-
 
 
 impl BasicMatrix for Radiance {
@@ -175,53 +169,13 @@ impl Photon {
   pub fn new(wl: &Wavelength, ray: &Ray) -> Self {
     Photon {wl: *wl, ray: *ray}
   }
-}
-
-pub type PhotonCache = Photon;
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct PhotonInfo {
-  pub wl: Wavelength,
-  pub pos: Position3,
-  pub dir: Direction3,
-}
-
-impl PhotonCache {
-  pub fn to_info(&self) -> PhotonInfo {
-    PhotonInfo {wl: self.wl, pos: self.ray.pos, dir: -self.ray.dir}
-  }
-}
-
-pub fn square_distance(pi1: &PhotonInfo, pi2: &PhotonInfo) -> Flt {
-  let d = pi1.pos - pi2.pos;
-  d.square()
-}
-
-pub fn photoninfo_to_radiance(n: &Direction3, pw: &Flt, ph: &Photon) -> Radiance {
-  let cos0 = n.dot(&ph.ray.dir);
-  let pw2 = if cos0 < 0.0 { *pw * -cos0 } else { 0.0 };
-  //eprintln!("NV:{}", pw);
-  match ph.wl {
-    Wavelength::Red   => Radiance(pw2, 0.0, 0.0),
-    Wavelength::Green => Radiance(0.0, pw2, 0.0),
-    Wavelength::Blue  => Radiance(0.0, 0.0, pw2),
-  }
-}
-
-pub struct PhotonMap {
-  pub power: Flt,
-  pub nsample: i32,
-  pub radius: Flt,
-  pub kdtree: KdTree<Flt, Photon, [Flt; 3]>,
-}
-
-impl PhotonInfo {
-  pub fn dummy(p: &Position3) -> PhotonInfo {
-    PhotonInfo {wl: Wavelength::Red, pos: *p, dir: Vector3::EX}
+  
+  pub fn dummy(p: &Position3) -> Photon {
+    Photon {wl: Wavelength::Red, ray: Ray::new(p, &Vector3::EX)}
   }
 
   pub fn to_radiance(&self, n: &Direction3, pw: &Flt) -> Radiance {
-    let cos0 = n.dot(&self.dir);
+    let cos0 = n.dot(&self.ray.dir);
     let pw2 = if cos0 > 0.0 { pw * cos0 } else { 0.0 };
     match self.wl {
       Wavelength::Red   => Radiance(pw2, 0.0, 0.0),
@@ -231,56 +185,25 @@ impl PhotonInfo {
   }
 
   pub fn to_points(&self) -> [Flt; 3] {
-    self.pos.v
+    self.ray.pos.v
   }
+
 }
 
-pub fn read_map(nsample: &i32, radius: &Flt) -> (usize, PhotonMap) {
-  //eprintln!("radius= {}", radius);
-  let mut reader = BufReader::new(io::stdin());
-  let mut line1 = String::new();
-  reader.read_line(&mut line1).expect("invalid #photon");
-  let mut line2 = String::new();
-  let pw0 = match reader.read_line(&mut line2) {
-    Ok(_) => {
-      match line2.trim().parse::<Flt>() {
-        Ok(pw) => pw,
-        _ => 1.0,
-      }
-    },
-    _ => 1.0,
-  };
-  let mut pmap =  KdTree::new(3);
-  let mut contents = String::new();
-  match reader.read_to_string(&mut contents) {
-    Err(e) => panic!("Error in reading photon map: {:?}", e),
-    _      => (),
+pub fn square_distance(pi1: &Photon, pi2: &Photon) -> Flt {
+  let d = pi1.ray.pos - pi2.ray.pos;
+  d.square()
+}
+
+pub fn photon_to_radiance(n: &Direction3, pw: &Flt, ph: &Photon) -> Radiance {
+  let cos0 = n.dot(&ph.ray.dir);
+  let pw2 = if cos0 < 0.0 { *pw * -cos0 } else { 0.0 };
+  //eprintln!("NV:{}", pw);
+  match ph.wl {
+    Wavelength::Red   => Radiance(pw2, 0.0, 0.0),
+    Wavelength::Green => Radiance(0.0, pw2, 0.0),
+    Wavelength::Blue  => Radiance(0.0, 0.0, pw2),
   }
-  let mut phs: Vec<Photon> = vec![];
-  let mut elems: Vec<&str>;
-  for line in contents.lines() {
-    let ln = line.clone();
-    elems = line.split(' ').collect();
-    let wl = match elems[0] {
-      "Red"   => Wavelength::Red,
-      "Green" => Wavelength::Green,
-      "Blue"  => Wavelength::Blue,
-      _       => Wavelength::Red,
-    };
-    let px = elems[1].parse::<Flt>().unwrap();
-    let py = elems[2].parse::<Flt>().unwrap();
-    let pz = elems[3].parse::<Flt>().unwrap();
-    let dx = elems[4].parse::<Flt>().unwrap();
-    let dy = elems[5].parse::<Flt>().unwrap();
-    let dz = elems[6].parse::<Flt>().unwrap();
-    let r = 
-    phs.push(Photon::new(&wl, &Ray::new_from_elem(px, py, pz, dx, dy, dz).unwrap()));
-  }
-  for p in phs {
-    let p2 = p.clone();
-    pmap.add(p.ray.pos.v, p).unwrap();
-  }
-  (pmap.size(), PhotonMap {power: pw0, nsample: *nsample, radius: *radius, kdtree: pmap})
 }
 
 
@@ -327,7 +250,7 @@ mod tests {
 
   #[test]
   fn test_photon() {
-    let pi1 = PhotonInfo {wl: Wavelength::Red, pos: Vector3::new_pos(1.0, 2.0, 3.1), dir: Vector3::new_dir(1.0, 1.0, 1.0).unwrap()};
+    let pi1 = Photon::new(&Wavelength::Red, &Ray::new(&Vector3::new_pos(1.0, 2.0, 3.1), &Vector3::new_dir(1.0, 1.0, 1.0).unwrap()));
     assert_eq!(pi1.to_points(), [1.0, 2.0, 3.1]);
     let r = Ray::new(&Vector3::new(5.5, 4.4, 3.3), &Vector3::EY);
     let ph1 = Photon {wl: Wavelength::Blue, ray: r};

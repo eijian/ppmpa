@@ -9,6 +9,7 @@ use ppmpa::ray::*;
 //use ppmpa::ray::geometry::*;
 use ppmpa::camera::*;
 use ppmpa::ray::optics::*;
+use ppmpa::photonmap::*;
 use ppmpa::scene::*;
 use ppmpa::tracer::*;
 
