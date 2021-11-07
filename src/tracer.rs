@@ -184,7 +184,7 @@ fn estimate_radiance(radius: &Flt, cam: &Camera, pmap: &PhotonMap, is: &Intersec
     let mut rad = Radiance::RADIANCE0;
     for (d, p2) in ps {
       let wt = match cam.pfilter {
-        PhotonFilter::Non   => 1.0,
+        PhotonFilter::None  => 1.0,
         PhotonFilter::Cone  => filter_cone(&d, &radius),
         PhotonFilter::Gauss => filter_gauss(&d, &radius),
       };
