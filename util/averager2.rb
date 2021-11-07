@@ -69,6 +69,10 @@ def add_image(fn, idx)
     @hd1 = fp.readline.chomp
     fp.readline.chomp =~ /radiance = (.+)$/
     @hd2 = $1.to_f
+    fp.readline.chomp =~ /parameters = (.+), (.+), (.+)$/
+    @p1 = $1 # shutter speed
+    @p2 = $2 # F-number
+    @p3 = $3 # ISO sensitivity
     @hd3 = fp.readline.chomp.split
     @hd4 = fp.readline.chomp.to_i
     (@hd3[0].to_i * @hd3[1].to_i).times do |pos|

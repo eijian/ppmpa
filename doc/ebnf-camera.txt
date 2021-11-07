@@ -1,0 +1,34 @@
+# EBNF: camera definition
+
+camera definition = { line } ;
+line = comment | parameter | parameter , { white space } , comment | spaces;
+comment = "#" , [ { all characters | white space } ] ;
+camera parameter = 
+  camera param integer | camera param real | camera param yesno |
+  camera param vector | photon filter ;
+camera param integer =
+  'x_resolution' | 'y_resolution' , [ spaces ] , ": " , [ spaces ] , integer ;
+camera param yesno =
+  'progressive' | 'antialias' | 'use_classic' | 'blur' ,
+  [ spaces ] , ": " , [ spaces ] , yesno ;
+camera param real =
+  'estimate_radius' | 'max_radiance' | 'iso_sensitivity' | 'shutter_speed' |
+  'focal_length' | 'f_number' | 'focus' , [ spaces ] , ": " , [ spaces ] , real ;
+camera param vector =
+  'ambient' | 'eye_position' | 'target_position' | 'upper_direction' ,
+  [ spaces ] , ": " , [ spaces ] , vector ;
+photon filter = 'photon_filter' , ": " , 'none' | 'cone' | 'gauss' ;
+yesno = 'yes' | 'no'
+filter = 'none' | 'cone' | 'gauss' ;
+vector = "[ " , spaces , real , "," , spaces , real , "," , spaces , real , spaces , " ]" ;
+spaces = { white space }
+identifier = alphabetic character , [ { alphabetic character | digit | "_" } ] ;
+letter = 
+alphabetic character =
+  "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" |
+  "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+integer = [ "-" ] , digit , [ { digit } ] ;
+real = integer , [ "." , digit , [ { digit } ] ] ;
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+white space = ? white space characters ? ;
+all characters = ? all visible characters ? ;

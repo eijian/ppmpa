@@ -15,9 +15,35 @@ use super::physics::*;
 
 #[derive(Debug, PartialEq)]
 pub enum PhotonFilter {
-  Non,
+  None,
   Cone,
   Gauss,
+}
+
+impl fmt::Display for PhotonFilter {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    let ph = match self {
+      PhotonFilter::None  => "PF:None",
+      PhotonFilter::Cone  => "PF:Cone",
+      PhotonFilter::Gauss => "PF:Gauss"
+    };
+    write!(f, "{}", self)
+  }
+}
+
+impl FromStr for PhotonFilter {
+  type Err = String;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    let re = Regex::new(r"^PF:(\S*?)$").unwrap();
+    let caps = re.captures(s).unwrap();
+    match &caps[1] {
+      "None"  => Ok(PhotonFilter::None),
+      "Cone"  => Ok(PhotonFilter::Cone),
+      "Gauss" => Ok(PhotonFilter::Gauss),
+      _       => Err(format!("invalid photon filter: {}", s)),
+    }
+  }
 }
 
 // --------------

@@ -1,5 +1,6 @@
 // camera
 
+use std::collections::HashMap;
 use std::f64;
 use rand::Rng;
 
@@ -21,21 +22,26 @@ impl fmt::Display for Rgb {
 
 pub struct Camera {
   //pub nphoton: i32,
-  pub progressive: bool,
   pub xreso: i32,
   pub yreso: i32,
-  pub antialias: bool,
   pub n_sample_photon: i32,
-  //pub use_classic_for_direct: bool,
+  pub progressive: bool,
+  pub antialias: bool,
+  pub use_classic_for_direct: bool,
+  pub blur: bool,
   pub radius: Flt,
+  pub max_radiance: Flt,
+  pub iso_sens: Flt,
+  pub shut_speed: Flt,
+  pub focal_len: Flt,
+  pub f_number: Flt,
+  pub focus: Flt,
   pub pfilter: PhotonFilter,
   pub ambient: Radiance,
-  pub max_radiance: Flt,
   pub eye_pos: Position3,
+  pub photon_power: Flt,
   pub eye_dir: Direction3,
-  pub focus: Flt,
   pub screen_map: Vec<(Flt, Flt)>,
-  pub blur: bool,
   pub origin: Position3,
   pub esx: Position3,
   pub esy: Position3,
@@ -69,9 +75,15 @@ impl Camera {
   }
   
   pub fn pnm_header(&self) -> Vec<String> {
+    let ss = if self.shut_speed < 1.0 {
+      format!("1/{}", 1.0 / self.shut_speed)
+    } else {
+      format!("{}", self.shut_speed)
+    };
     vec![
       "P3".to_string(),
       format!("## max radiance = {}", self.max_radiance),
+      format!("## image parameters = {}, F{}, ISO{}", ss, self.f_number, self.iso_sens),
       format!("{} {}", self.xreso, self.yreso),
       "255".to_string(),
     ]
@@ -88,34 +100,72 @@ impl Camera {
   }  
 }
 
+const SENSOR_SIZE  : Flt = 35.0 / 1000.0;
+const ISO_SENS     : Flt = 100.0;
+const F_NUMBER     : Flt = 4.9;
+const SHUTTER_SPEED: Flt = 1.0 / 250.0;
 
 pub fn read_camera(_file: &str) -> Camera {
-  let target = Vector3::new_pos(0.0, 2.0, 0.0);
-  let eyepos = Vector3::new_pos(0.0, 2.0, -4.5);
-  let upper  = Vector3::EY;
-  let focus = 7.0;
-  let focallen: Flt = 50.0 / 1000.0;
-  let fnumber: Flt = 5.0;
-  let xreso = 256;
-  let yreso = 256;
-  let aa_flag = true;
-  let prog_flag = true;
-  let blur_flag = false;
+  let mut config = vec![
+    ("x_resolution"   , "256"),
+    ("y_resolution"   , "256"),
+    ("progressive"    , "true"),
+    ("antialias"      , "true"),
+    ("use_classic"    , "true"),
+    ("blur"           , "true"),
+    ("estimate_radius", "0.2"),
+    ("max_radiance"   , "0.01"),
+    ("iso_sensitivity", "100"),    // ISO100 is default (enough photons)
+    ("shutter_speed"  , "0.004"),  // unit is second
+    ("focal_length"   , "50.0"),   // unit is 'mm'
+    ("f_number"       , "4.0"),
+    ("focus"          , "7.0"),
+    ("photon_filter"  , "PF:None"),
+    ("ambient"        , "RAD[0.0,0.0,0.0]"),  // ambient light intensity
+    ("eye_position"   , "V3[1.0,2.0,-4.5]"),  // center of a camera diaphragm
+    ("target_position", "V3[0.0,1.0,0.0]"),   // center of a screen
+    ("upper_direction", "V3[0.0,1.0,0.0]"),
+  ].into_iter().collect::<HashMap<_, _>>();
+
+
+  //let target = Vector3::new_pos(0.0, 2.0, 0.0);
+  let xreso      = param_int(&config, "x_resolution");
+  let yreso      = param_int(&config, "y_resolution");
+  let prog_flag  = param_bool(&config, "progressive");
+  let aa_flag    = param_bool(&config, "antialias");
+  let uc_flag    = param_bool(&config, "use_classic");
+  let blur_flag  = param_bool(&config, "blur");
+  let radius     = param_float(&config, "estimate_radius");
+  let max_rad    = param_float(&config, "max_radiance");
+  let iso_sens   = param_float(&config, "iso_sensitivity");
+  let shut_speed = param_float(&config, "shutter_speed");
+  let focal_len  = param_float(&config, "focal_length") / 1000.0;
+  let f_number   = param_float(&config, "f_number");
+  let focus      = param_float(&config, "focus");
+  let pf         = config.get("photon_filter").unwrap().parse::<PhotonFilter>().unwrap();
+  let ambient    = param_rad(&config, "ambient");
+  let eyepos     = param_vec3(&config, "eye_position");
+  let target     = param_vec3(&config, "target_position");
+  let upper      = param_vec3(&config, "upper_direction");
 
   let _ez = (target - eyepos).normalize().unwrap();
   let _ex = upper.cross(&_ez).normalize().unwrap();
   let _ey = _ex.cross(&_ez).normalize().unwrap();
 
-  let _step = (focus * 0.035 / focallen) / xreso as Flt;
+  let _step = (focus * SENSOR_SIZE / focal_len) / xreso as Flt;
   let esx = _step * _ex;
   let esy = _step * _ey;
-  let _fnum: Flt = 4.0;
-  let _ea = focallen / fnumber;
+  let _ea = focal_len / f_number;
   let eex = _ea * _ex;
   let eey = _ea * _ey;
   let _lx = (xreso / 2) as Flt;
   let _ly = (yreso / 2) as Flt;
   let orig = focus * _ez - (_lx - 0.5) * esx - (_ly - 0.5) * esy;
+  let ppower = if blur_flag {
+    iso_sens / ISO_SENS * F_NUMBER / f_number * shut_speed / SHUTTER_SPEED
+  } else {
+    1.0
+  };
 
   let mut smap: Vec<(Flt, Flt)> = vec![];
   for y in 0..yreso {
@@ -126,21 +176,26 @@ pub fn read_camera(_file: &str) -> Camera {
 
   let cam = Camera {
     //nphoton: 500000,
-    progressive: prog_flag,
     xreso: xreso,
     yreso: yreso,
-    antialias: aa_flag,
     n_sample_photon: 500,
-    //use_classic_for_direct: true,
-    radius: 0.1 * 0.1,            // squared radius 
-    pfilter: PhotonFilter::Gauss,
-    ambient: Radiance::RADIANCE0, //Radiance(0.001, 0.001, 0.001), //
-    max_radiance: 0.01,
-    eye_pos: eyepos,
-    eye_dir: (target - eyepos).normalize().unwrap(),    
-    focus: focus,
-    screen_map: smap,
+    progressive: prog_flag,
+    antialias: aa_flag,
+    use_classic_for_direct: uc_flag,
     blur: blur_flag,
+    radius: radius * radius,            // squared radius 
+    max_radiance: max_rad,
+    iso_sens: iso_sens,
+    shut_speed: shut_speed,
+    focal_len: focal_len,
+    f_number: f_number,
+    focus: focus,
+    pfilter: pf,
+    ambient: ambient, //Radiance(0.001, 0.001, 0.001), //
+    eye_pos: eyepos,
+    photon_power: ppower,
+    eye_dir: (target - eyepos).normalize().unwrap(),    
+    screen_map: smap,
     origin: orig,
     esx: esx,
     esy: esy,
@@ -164,7 +219,28 @@ pub fn rgb_to_radiance(cam: &Camera, c: &Rgb) -> Radiance {
 }
 
 //--------------------
-// private functions
+// private
+
+fn param_int(config: &HashMap<&str, &str>, p: &str) -> i32 {
+  config.get(p).unwrap().parse::<i32>().unwrap()
+}
+
+fn param_bool(config: &HashMap<&str, &str>, p: &str) -> bool {
+  config.get(p).unwrap().parse::<bool>().unwrap()
+}
+
+fn param_float(config: &HashMap<&str, &str>, p: &str) -> Flt {
+  config.get(p).unwrap().parse::<Flt>().unwrap()
+}
+
+fn param_vec3(config: &HashMap<&str, &str>, p: &str) -> Vector3 {
+  config.get(p).unwrap().parse::<Vector3>().unwrap()
+}
+
+fn param_rad(config: &HashMap<&str, &str>, p: &str) -> Radiance {
+  config.get(p).unwrap().parse::<Radiance>().unwrap()
+}
+
 
 /*
 fn make_generate_ray(aa_flag: &bool, prog_flag: &bool, epos: &Position3,
