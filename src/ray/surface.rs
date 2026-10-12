@@ -3,519 +3,201 @@
 //   https://www.slideshare.net/teppeikurita/brdf-196782059
 //
 
-use rand::Rng;
+use std::fmt;
+//use rand::Rng;
 
-use super::*;
-use super::algebra::*;
-use super::optics::*;
-use super::physics::*;
+use super::{Flt, NEARLY0, PI};
+use super::algebra::{Direction3, SurfacePoint, Vector, Vector2, Vector3, blurred_vector};
+use super::material::{Material};
+use super::optics::{Color};
+use super::utils::{density_power, russian_roulette_binary};
 
-const ONE_PI: Flt = 1.0 / f64::consts::PI;
-
+// Mapping ---------------
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Surface {
-  Nothing,
-  // My original model
-  Simple {
-    reflectance:   Color,
-    specular_refl: Color,
-    diffuseness:   Flt,
-    metalness:     Flt,
-    roughness:     Flt,
-    // calculate values
-    density_pow:   Flt,
+pub enum Mapping<'a> {
+  Solid {
+    mate: &'a Material,
   },
-  // Torrance-Sparrow model
-  TS {
-    albedo_diff: Color,
-    albedo_spec: Color,
-    scatterness: Flt,
-    metalness:   Flt,   // 0.0:dielectric, 1.0: metal
-    roughness:   Flt,
-    // calculate values
-    density_pow: Flt,
-    alpha:       Flt,
+  Checker {
+    mate1: &'a Material,
+    mate2: &'a Material,
+    mag  : Flt,
   },
-  DisneyBRDF,
-  Brady,
 }
 
-impl Surface {
-
-  pub fn new_simple(refl: &Color, spec: &Color, diff: &Flt, meta: &Flt, rough: &Flt) -> Surface {
-    Surface::Simple {
-      reflectance:   *refl,
-      specular_refl: *spec,
-      diffuseness:   *diff,
-      metalness:     *meta,
-      roughness:     *rough,
-      density_pow:   1.0 / (10.0_f64.powf(5.0 * (1.0 - f64::sqrt(*rough))) + 1.0),
-    }
+impl<'a> Mapping<'a> {
+  #[inline(always)]
+  pub fn new_solid(mate: &Material) -> Mapping {
+    Mapping::Solid {mate}
   }
 
-  pub fn new_ts(al_diff: &Color, al_spec: &Color, scat: &Flt, meta: &Flt, rough: &Flt) -> Surface {
-    Surface::TS {
-      albedo_diff: *al_diff,
-      albedo_spec: *al_spec,
-      scatterness: *scat,
-      metalness:   *meta,
-      roughness:   *rough,
-      density_pow: 1.0 / (10.0_f64.powf(5.0 * (1.0 - f64::sqrt(*rough))) + 1.0),
-      alpha:       *rough * *rough * *rough * *rough,
-    }
+  #[inline(always)]
+  pub fn new_checker(mate1: &'a Material, mate2: &'a Material, mag: Flt) -> Mapping<'a> {
+    Mapping::Checker {mate1, mate2, mag}
   }
 
-  pub fn reflect(&self, cos: &Flt) -> bool {
+  pub fn material(&self, sp: &SurfacePoint, _uv: &Vector2) -> &Material {
     match self {
-      Surface::Nothing => false,
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => {
-        (*diffuseness == 1.0 ||
-         (*cos == 1.0 && *specular_refl == Color::BLACK)
-        ) == false
-      },
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => {
-        match metalness {
-          0.0 => true,
-          1.0 => *albedo_spec != Color::BLACK,
-          _   => true,
+      Mapping::Solid {mate}
+        => mate,
+      Mapping::Checker {mate1, mate2, mag}
+        => if f64::sin(sp.pos.x * PI * mag) * f64::sin(sp.pos.z * PI * mag) > 0.0 {
+          mate1
+        } else {
+          mate2
         }
-      },
-      _ => false,
     }
   }
 
-  pub fn refract(&self, cos: &Flt) -> bool {
+}
+
+impl<'a> fmt::Display for Mapping<'a> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self {
-      Surface::Nothing => false,
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => {
-        (*cos == 0.0 && *specular_refl == Color::WHITE) == false
-      },
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => {
-        if *metalness == 0.0 {
-          if *scatterness < 1.0 && *albedo_diff != Color::BLACK {
-            return true
-          }
-        }
-        false
-      },
-      _ => false,
-    }
-  }
-
-  pub fn bsdf(&self, nvec: &Direction3, edir: &Direction3, rdir: &Direction3, tdir: &Option<Direction3>,
-              cos0: &Flt, ior: &Flt, di: &Radiance, si: &Radiance, ti: &Radiance)
-             -> Radiance {
-    //let mate = is.mate;
-
-    match self {
-      Surface::Nothing => Radiance::RADIANCE0,
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => {
-        let f  = reflection_index(specular_refl, cos0);
-        let f2 = -f;
-        *diffuseness         * (*reflectance * ONE_PI * *di) +
-        (1.0 - *diffuseness) * (f * *si + (1.0 - *metalness) * f2 * *ti)
-      },
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => {
-        let lvec = *rdir;
-        let vvec = -*edir;
-        let hvec = (lvec + vvec).normalize().unwrap();
-        let cos_h = hvec.dot(&vvec);
-        //let f = reflection_index(albedo_spec, &cos_h);
-        let f = reflection_index(albedo_spec, &cos0);
-        let f2 = -f;  // (1 - f)
-        let i_de = match metalness {
-          0.0 => f2 * *albedo_diff * (
-            *scatterness         * ONE_PI * *di
-            // 屈折率の異なる物質に入射した光の輝度は1/eta^2となるらしい
-            //+ (1.0 - *scatterness) * 1.0 / (ior * ior) * *ti
-            + (1.0 - *scatterness) * *ti
-          ),
-          _   => Radiance::RADIANCE0,
-        };
-        /*
-        let cos_v = nvec.dot(&vvec);   // (v.n)
-        //let cos_v = *cos0;             // (v.n)
-        let cos_l = nvec.dot(&lvec);   // (l.n)
-        let cos_n = nvec.dot(&hvec);   // (h.n)
-        //println!("a:{}/cos_n:{}/cos_v:{}/cos_l:{}", alpha, cos_n, cos_v, cos_l);
-        let cos_sq = cos_n * cos_n;
-        let d0 = cos_sq * (alpha - 1.0) + 1.0;
-        let d = (alpha / f64::consts::PI) / (d0 * d0);
-        let lam_v = -1.0 + f64::sqrt(1.0 + alpha * (1.0 / (cos_v * cos_v) - 1.0)) / 2.0;
-        let lam_l = -1.0 + f64::sqrt(1.0 + alpha * (1.0 / (cos_l * cos_l) - 1.0)) / 2.0;
-        let g = (1.0 / (1.0 + lam_l)) * (1.0 / (1.0 + lam_v));
-        //let i_mt = (d * g / (4.0 * cos_l * cos_v)) * f * *si;
-        // そもそもsiにTSモデルなどは適用しない？
-        */
-        let i_mt = f * *si;
-        //let i_mt = f * *si + (f2 * ior * ior) * *ti;
-        i_de + i_mt
-      },
-      Surface::DisneyBRDF   => {
-        Radiance::RADIANCE0
-      },
-      Surface::Brady        => {
-        Radiance::RADIANCE0
-      },
-    }
-  }
-
-  // OUT: dir  next ray direction. if dir is None, the photon is absorbed.
-  //      T/F  true=reflection, false=refraction
-
-  pub fn next_direction(&self, eta: &Flt, nvec: &Direction3, vvec: &Direction3, wl: &Wavelength) -> Option<(Direction3, bool)> {
-    let (rdir0, cos1) = specular_reflection(nvec, vvec);
-    let rdir = reflection_glossy(nvec, &rdir0, &self.power_glossy());
-    let hvec = (rdir - *vvec).normalize().unwrap();
-    let (tdir, cos2) = specular_refraction(&hvec, vvec, eta);
-    let cos = if cos1 < cos2 { cos1 } else { cos2 };
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => {
-        None
-      },
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => {
-        let f = schlick(&albedo_spec.wavelength(&wl), &cos);
-        // 鏡面反射
-        if russian_roulette(&[f]) == 0 {
-          return Some((rdir, true))
-        }
-        // 吸収
-        if russian_roulette(&[albedo_diff.wavelength(&wl)]) == 1 {
-          return None
-        }
-        // 拡散反射
-        if russian_roulette(&[*scatterness]) == 0 {
-          return Some((diffuse_reflection(nvec), true))
-        }
-        // 鏡面透過
-        match tdir {
-          Some(tdir) => Some((tdir, false)),
-          _ => None,
-        }
-      },
-      _ => None,
-    }
-  }
-
-  pub fn select_diffuse(&self, cos: &Flt, wl: &Wavelength) -> bool {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => {
-        let m = *metalness;
-        russian_roulette(&[m]) > 0
-      },
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => {
-        let f = schlick(&albedo_spec.wavelength(wl), &cos);
-        russian_roulette(&[f]) > 0
-      },
-      _ => true,
-    }
-  }
-
-  pub fn store_photon(&self) -> bool {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => *diffuseness > 0.0,
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => *metalness != 1.0 && *scatterness != 0.0,
-      _ => true,     
-    }
-  }
-
-  pub fn albedo_diff(&self, wl: &Wavelength) -> Flt {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => reflectance.wavelength(wl),
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => albedo_diff.wavelength(wl),
-      _ => 0.0,
-    }
-  }
-
-  pub fn albedo_spec(&self, wl: &Wavelength) -> Flt {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => specular_refl.wavelength(wl),
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => albedo_spec.wavelength(wl),
-      _ => 0.0,
-    }
-  }
-
-  pub fn roughness(&self) -> Flt {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => *diffuseness,
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => *roughness,
-      _ => 0.0,
-    }
-  }
-
-  pub fn power_glossy(&self) -> Flt {
-    match self {
-      Surface::Simple {
-        reflectance,
-        specular_refl,
-        diffuseness,
-        metalness,
-        roughness,
-        density_pow,
-      } => *density_pow,
-      Surface::TS {
-        albedo_diff,
-        albedo_spec,
-        scatterness,
-        metalness,
-        roughness,
-        density_pow,
-        alpha,
-      } => *density_pow,
-      _ => 0.0,
+      Mapping::Solid {mate}
+        => write!(f, "SOLID[{}]", mate),
+      Mapping::Checker {mate1, mate2, mag}
+        => write!(f, "CHECKER[{},{},{:.3}]", mate1, mate2, mag),
     }
   }
 }
 
-// utility functions
-//
+#[test]
+fn test_mapping() {
+  // new
+  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+  let mp1 = Mapping::new_solid(&m1);
+  let sp1 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
+  let uv = Vector2::O;
+  assert_eq!(*mp1.material(&sp1, &uv), m1);
+  let m2 = Material::new(&Color::WHITE, &Color::BLACK,
+                                   &Color::WHITE, &Color::BLACK, 0.0, 0.0);
+  let sp2 = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
+  let mp2 = Mapping::new_checker(&m1, &m2, 1.0);
+  assert_eq!(*mp2.material(&sp1, &uv), m1);
+  assert_eq!(*mp2.material(&sp2, &uv), m2);
+  let sp3 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 1.5), &Vector3::EY).unwrap();
+  assert_eq!(*mp2.material(&sp3, &uv), m2);
+  
+  // fmt
+  assert_eq!(format!("{}", mp1), "SOLID[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000]]");
+  assert_eq!(format!("{}", mp2), "CHECKER[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000],MATERIAL[COL[1,1,1],COL[0,0,0],COL[0,0,0],COL[1,1,1],0.000,0.000],1.000]");
 
-pub fn diffuse_reflection(n: &Direction3) -> Direction3 {
-  //let d = generate_random_dir();
-  let d = generate_random_dir_by_angle();
-  let c = n.dot(&d);
-  if c > 0.0 {
-    d
-  } else {
-    -d
-  }
 }
 
+
+// Surface --------------------------------
 /*
-pub fn specular_reflection(n: &Direction3, e: &Direction3, sf: &Surface) -> (Direction3, Flt) {
-  let c = e.dot(n);
-  let v = (*e - (2.0 * c) * *n).normalize();
-  match v {
-    Some(v) => {
-      let r = match sf {
-        Surface::Simple {
-          reflectance,
-          specular_refl,
-          diffuseness,
-          metalness,
-          roughness,
-          density_pow,
-        } => {
-          match roughness {
-            0.0 => v,
-            _   => reflection_glossy(n, &v, density_pow),
-          }
-        },
-        Surface::TS {
-          albedo_diff,
-          albedo_spec,
-          scatterness,
-          metalness,
-          roughness,
-          density_pow,
-          alpha,
-        }    => {
-          match roughness {
-            0.0 => v,
-            _   => reflection_glossy(n, &v, density_pow),
-          }
-        },
-        _ => v,
-      };
-      if c < 0.0 {
-        (r, -c)
-      } else {
-        (r, c)
-      }
-    },
-    None => (*n, 0.0),
-  }
-}
-
-pub fn specular_refraction(ior: &Flt, c0: &Flt, ed: &Direction3, n: &Direction3, sf: &Surface) -> Option<Direction3> {
-  let r = 1.0 / (ior * ior) + c0 * c0 - 1.0;
-  if r < 0.0 {
-    return None
-  }
-  let a = c0 - f64::sqrt(r);
-
-  let n2 = match sf {
-    Surface::Simple {
-      reflectance,
-      specular_refl,
-      diffuseness,
-      metalness,
-      roughness,
-      density_pow,
-    } => {
-      if *roughness == 0.0 {
-        *n
-      } else {
-        let r = reflection_glossy(n, ed, density_pow);
-        (r - *ed).normalize().unwrap()
-      }
-    },
-    Surface::TS {
-      albedo_diff,
-      albedo_spec,
-      scatterness,
-      metalness,
-      roughness,
-      density_pow,
-      alpha,
-    } => {
-      if *roughness == 0.0 {
-        *n
-      } else {
-        let r = reflection_glossy(n, ed, density_pow);
-        (r - *ed).normalize().unwrap()
-      }
-    },
-    _ => *n,
-  };
-  (*ior * (*ed + a * n2)).normalize()
-}
+  glossyな表面とは法線ベクトルがブレていると捉える。
+  ブレ幅は表面の粗さ(roughness)に依る。
+    完全に粗い  ：roughness=1.0
+    完全に滑らか：roughness=0.0
+  
+  面の法線をN、glossy面でブレた法線をN'とすると
+  <N',N'>(NとN'のなす角をθとした時のcosθ)は、乱数ξ[0,1]を用いて
+    cosθ = ξ^(1/n+1)
+  とする。ここでnは
+    n = 10^(5*(1-√roughness))
+  と決める。（roughness 0 〜 1の時の増分に結果がスライドするように）
+  cosθの計算時に使えるよう保持しておく
+  densityPow <- 1/(n+1)
 */
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Surface<'a> {
+  roughness: Flt,                  // 表面の粗さ(0.0: 完全平滑面 〜 1.0: 完全拡散面)
+  pub map      : Mapping<'a>,          // 材質情報
+  // calcuration when initializing
+  pub power    : Flt,                  // 表面の粗さから分散度合いnを求める
+  alpha    : Flt,                  // 粗さを４乗して保持しておく
+}
 
-// private methods
+impl<'a> Surface<'a> {
 
-fn reflection_index(col: &Color, c: &Flt) -> Color {
-  let c2 = (1.0 - *c).powf(5.0);
-  Color(col.0 + (1.0 - col.0) * c2, col.1 + (1.0 - col.1) * c2, col.2 + (1.0 - col.2) * c2)
+  #[inline(always)]
+  pub fn new(rough: Flt, map: Mapping<'a>) -> Self {
+    let (_, power) = density_power(1.0 - f64::sqrt(rough));
+    let alpha = rough * rough * rough * rough;
+
+    Surface {roughness: rough, map, power, alpha}
+  }
+
+  // microfacetNormal: 微小平面での法線ベクトルを求める
+  /*
+    IN:  self(surf)  表面状態
+         nvec  マクロ平面での法線ベクトル
+         vvec  光子/視線の交点への入射ベクトル
+         retry 算出した法線ベクトルが無効な場合に再算出するかどうか[0:1回のみ試行 〜 1:有効な解が得られるまで試行]
+    OUT: 微小平面での法線ベクトル（Maybe）
+   */
+  pub fn microfacet_normal(&self, nvec: &Direction3, vvec: &Direction3, retry: Flt) -> Option<Direction3> {
+    if self.roughness == 0.0 {
+      // 完全平滑面ならマクロ法線を返す
+      Some(*nvec)
+    } else {
+      let nvec_ = blurred_vector(nvec, self.power);
+      if nvec_.dot(vvec) < 0.0 {
+        // 有効な法線ベクトルが得られた
+        Some(nvec_)
+      } else {
+        // 金属なら法線ベクトルを必ず求める（retry = 1.0)
+        if russian_roulette_binary(retry) {
+          self.microfacet_normal(nvec, vvec, retry)
+        } else {
+          None
+        }
+      }
+    }
+  }
+
+  pub fn material(&self, sp: &SurfacePoint, uv: &Vector2) -> &Material {
+    self.map.material(sp, uv)
+  }
+
+}
+
+impl<'a> fmt::Display for Surface<'a> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "Surface ({}, {})", self.roughness, self.power)
+  }
 }
 
 
-//
+#[test]
+fn test_surface() {
+  // new
+  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+  let mt1 = Mapping::new_solid(&m1);
+  let sf1 = Surface::new(0.0, mt1);
+  assert_eq!(sf1.roughness, 0.0);
+  assert!(sf1.power < NEARLY0);
+  assert_eq!(sf1.alpha, 0.0);
 
+  // microfacet_normal
+  assert_eq!(sf1.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0), Some(Vector3::EY));
+  let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
+  assert_eq!(sf1.microfacet_normal(&Vector3::EY, &vvec, 1.0), Some(Vector3::EY));
+  let m2 = Material::new(&Color::WHITE, &Color::BLACK,
+                                   &Color::WHITE, &Color::BLACK, 1.0, 0.0);
+  let mt2 = Mapping::new_checker(&m1, &m2, 1.0);
+  let sf2 = Surface::new( 0.5, mt2);
+  assert_eq!(sf2.roughness, 0.5);
+  assert!(sf2.power - 0.0011 < NEARLY0);
+  assert_eq!(sf2.alpha, (0.5_f64).powf(4.0));
+  let rvec = sf2.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0);
+  match rvec {
+    Some(rv) => assert!(rv.dot(&Vector3::EY) >= 0.0),
+    None => assert!(false),
+  }
+
+  // material
+  let mut sp = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
+  assert_eq!(*sf1.material(&sp, &Vector2::O), m1);
+  assert_eq!(*sf2.material(&sp, &Vector2::O), m1);
+  sp = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
+  assert_eq!(*sf2.material(&sp, &Vector2::O), m2);
+
+}
 
 

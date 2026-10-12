@@ -1,58 +1,118 @@
-// object
+// Object module
 
-//use super::algebra::*;
-use super::geometry::*;
-use super::material::*;
-//use super::optics::*;
-//use super::physics::*;
+use super::{Flt, PI4};
+use super::algebra::{Direction3, Ray, SurfacePoint, Vector, Vector3};
+use super::geometry::{ShapeFunc, Shape};
+use super::light::{InOut, LightSpec, RadEstimation, Radiosity};
+use super::material::{Material};
+use super::surface::{Mapping, Surface};
+use super::optics::{Color, Photon, Radiance};
 
-#[derive(Debug, Clone, Copy)]
-pub struct Object {
-  pub shape: Shape,
-  pub material: Material,
+
+// Object --------------
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Object<'a> {
+  shape  : Shape,
+  surface: Surface<'a>,
+  light  : Option<LightSpec>,  // 発光（光源も物体の一つ）情報、光源でなければNone
 }
 
-impl PartialEq for Object {
-  fn eq(&self, other: &Self) -> bool {
-    self.shape == other.shape && self.material == other.material
-  }
-}
+impl<'a> Object<'a> {
 
-impl Object {
-  pub fn new(s: &Shape, m: &Material) -> Object {
-    Object {shape: *s, material: *m}
-  }
-}
-
-
-
-#[cfg(test)]
-mod tests {
-  use super::*;
-  use super::super::algebra::*;
-  use super::super::optics::*;
-  use super::super::physics::*;
-
-  #[test]
-  fn test_object() {
-    let shp = Shape::Plain {
-      nvec: Vector3::EY,
-      dist: 0.0,
-    };
-    let mat = Material {
-      emittance: Radiance::RADIANCE0,
-      reflectance: Color(1.0, 0.7, 0.9),
-      transmittance: Color(0.0, 0.0, 0.0),
-      specular_refl: Color(0.1, 0.3, 0.5),
-      ior: Color(0.8, 0.2, 0.5),
-      diffuseness: 0.5,
-      metalness: 0.1,
-      roughness: 0.2,
-    };
-    let obj = Object::new(&shp, &mat);
-    assert_eq!(obj.shape, shp);
-    assert_eq!(obj.material, mat);
+  #[inline(always)]
+  pub fn new(shape: &Shape, surface: &'a Surface, lgtspec: &Option<LightSpec>) -> Self {
+    Object {shape: *shape, surface: *surface, light: *lgtspec}
   }
 
+  #[inline(always)]
+  pub fn is_light(&self) -> bool {
+    if let Some(_l) = self.light {
+      true
+    } else {
+      false
+    }
+  }
+
+  // emittance
+  //   IN: sp 視線と物体表面が交わる点（座標＋法線ベクトル）
+  //       vvec 視線ベクトル（物体へ向かう方向）
+  pub fn emittance(&self, sp: &SurfacePoint, vvec: &Direction3) -> Radiance {
+    match self.light {
+      Some(l) => l.emittance(sp, vvec),
+      None => Radiance::ZERO,
+    }
+  }
+
+  // flux: 物体の放射束 [W]
+
+  pub fn flux(&self) -> Flt {
+    match self.light {
+      Some(ls) => self.shape.surface_area() * ls.radiosity(),
+      None => 0.0,
+    }
+  }
+
+  // emit_photons: 物体の放射束を元に、エネルギー e のフォトンを複数放射する
+  //   IN:
+  //     e 光子エネルギー[W] ※ 物体の放射束に対しエネルギーeの光子を放出したい＝放射する光子数 n
+  //   OUT:
+  //     光子(n個)
+
+  pub fn emit_photons(&self, e: Flt) -> Vec<(Photon, RadEstimation)> {
+    let mut photons: Vec<(Photon, RadEstimation)> = Vec::new();
+    if let Some(ls) = self.light {
+      let flux = self.flux();
+      let n = (flux / e) as i32;
+      for _i in 0..n {
+        photons.push(ls.generate_photon(&self.shape.random_point()));
+      }
+    }
+    photons
+  }
+
 }
+
+#[test]
+fn test_object() {
+  // new, is_light
+  let sp = Shape::new_sphere(&Vector3::O, 0.5);
+  let col = Color::new_by_kelvin(5000.0);
+  let ls = LightSpec::new(&col, 1500.0, 0.0, RadEstimation::Photon, InOut::Out);
+  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+  let mt1 = Mapping::new_solid(&m1);
+  let sf1 = Surface::new(0.0, mt1);
+  let ob1 = Object::new(&sp, &sf1, &Some(ls));
+
+  assert_eq!(ob1.light, Some(ls));
+  let ob2 = Object::new(&sp, &sf1, &None);
+  assert_eq!(ob2.light, None);
+
+  // emittance
+  let sp = Ray::new(&Vector3::O, &Vector3::EY).unwrap();
+  let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
+  assert_eq!(ob1.emittance(&sp, &(-Vector3::EY)), ls.emittance(&sp, &(-Vector3::EY)));
+  assert_eq!(ob1.emittance(&sp, &vvec), ls.emittance(&sp, &vvec));
+  assert_eq!(ob2.emittance(&sp, &vvec), Radiance::ZERO);
+
+  // flux
+  assert_eq!(ob1.light.unwrap().radiosity(), 2.1961932650073206);  // [W]
+  let fl = 2.1961932650073206 * PI4 * 0.5 * 0.5;
+  assert_eq!(fl, 6.89954462721038);
+  assert_eq!(ob1.flux(), fl);
+  assert_eq!(ob2.flux(), 0.0);
+
+  // emit_photons
+  let ps = ob1.emit_photons(0.6899);
+  assert_eq!(ps.len(), 10);
+
+}
+
+
+
+// SUPPORT FUNCS
+
+
+
 
