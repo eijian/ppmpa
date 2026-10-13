@@ -3,8 +3,6 @@
 //use std::f64;
 use std::fmt;
 use std::num::*;
-//use std::intrinsics::const_eval_select;
-//use std::num::ParseFloatError;
 use std::ops::Neg;
 use std::ops::Add;
 use std::ops::Sub;
@@ -15,7 +13,7 @@ use std::str::{FromStr};
 use rand::Rng;
 use regex::Regex;
 
-use super::{Flt, NEARLY0, PI, PI2, PI_2ND};
+use super::{Flt, NEARLY0, PI, PI2};
 
 pub trait BasicMatrix: Copy + Add + Sub + PartialEq {
   //fn div(&self, s: Flt) -> Option<Self>;
@@ -260,141 +258,167 @@ impl From<Vector3> for [Flt; 3] {
   }
 }
 
-#[test]
-fn test_vector3() {
+#[cfg(test)]
+mod tests_vector3 {
+  use super::*;
 
   /* Test for Vector3
-   */
-  // O
-  assert_eq!(Vector3::O.x, 0.0);
-  assert_eq!(Vector3::O.y, 0.0);
-  assert_eq!(Vector3::O.z, 0.0);
-  // EX
-  assert_eq!(Vector3::EX.x, 1.0);
-  assert_eq!(Vector3::EX.y, 0.0);
-  assert_eq!(Vector3::EX.z, 0.0);
-  // EY
-  assert_eq!(Vector3::EY.x, 0.0);
-  assert_eq!(Vector3::EY.y, 1.0);
-  assert_eq!(Vector3::EY.z, 0.0);
-  // EZ
-  assert_eq!(Vector3::EZ.x, 0.0);
-  assert_eq!(Vector3::EZ.y, 0.0);
-  assert_eq!(Vector3::EZ.z, 1.0);
-  // new
-  let v1 = Vector3::new(1.0, 2.1, -3.4);
-  assert_eq!(v1.x, 1.0);
-  assert_eq!(v1.y, 2.1);
-  assert_eq!(v1.z, -3.4);
-  // x, y, z
-  let v2 = Vector3::new(-2.0, 1.3, -4.8);
-  assert_eq!(v2.x(), -2.0);
-  assert_eq!(v2.y(), 1.3);
-  assert_eq!(v2.z(), -4.8);
-  // at
-  assert_eq!(v2.at(0), -2.0);
-  assert_eq!(v2.at(1), 1.3);
-  assert_eq!(v2.at(2), -4.8);
-  //cross
-  assert_eq!(v1.cross(&v1), Vector3::new(0.0, 0.0, 0.0));
-  let v3 = v1.cross(&v2);
-  assert_eq!(v3.x, 2.1*(-4.8) - (-3.4)*1.3);
-  assert_eq!(v3.y, (-3.4)*(-2.0) - 1.0*(-4.8));
-  assert_eq!(v3.z, 1.0*1.3 - 2.1*(-2.0));
-  let v3 = v2.cross(&v1);
-  assert_eq!(v3.x, 1.3*(-3.4) - (-4.8)*2.1);
-  assert_eq!(v3.y, (-4.8)*1.0 - (-3.4)*(-2.0));
-  assert_eq!(v3.z, (-2.0)*2.1 - 1.3*1.0);
-  assert_eq!(Vector3::EX.cross(&Vector3::EY), Vector3::EZ);
-  assert_eq!(Vector3::EY.cross(&Vector3::EZ), Vector3::EX);
-  assert_eq!(Vector3::EZ.cross(&Vector3::EX), Vector3::EY);
+  */
+  #[test]
+  fn test_vector3() {
+    // O
+    assert_eq!(Vector3::O.x, 0.0);
+    assert_eq!(Vector3::O.y, 0.0);
+    assert_eq!(Vector3::O.z, 0.0);
+    // EX
+    assert_eq!(Vector3::EX.x, 1.0);
+    assert_eq!(Vector3::EX.y, 0.0);
+    assert_eq!(Vector3::EX.z, 0.0);
+    // EY
+    assert_eq!(Vector3::EY.x, 0.0);
+    assert_eq!(Vector3::EY.y, 1.0);
+    assert_eq!(Vector3::EY.z, 0.0);
+    // EZ
+    assert_eq!(Vector3::EZ.x, 0.0);
+    assert_eq!(Vector3::EZ.y, 0.0);
+    assert_eq!(Vector3::EZ.z, 1.0);
+    // new
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    assert_eq!(v1.x, 1.0);
+    assert_eq!(v1.y, 2.1);
+    assert_eq!(v1.z, -3.4);
+    // x, y, z
+    let v2 = Vector3::new(-2.0, 1.3, -4.8);
+    assert_eq!(v2.x(), -2.0);
+    assert_eq!(v2.y(), 1.3);
+    assert_eq!(v2.z(), -4.8);
+    // at
+    assert_eq!(v2.at(0), -2.0);
+    assert_eq!(v2.at(1), 1.3);
+    assert_eq!(v2.at(2), -4.8);
+    //cross
+    assert_eq!(v1.cross(&v1), Vector3::new(0.0, 0.0, 0.0));
+    let v3 = v1.cross(&v2);
+    assert_eq!(v3.x, 2.1*(-4.8) - (-3.4)*1.3);
+    assert_eq!(v3.y, (-3.4)*(-2.0) - 1.0*(-4.8));
+    assert_eq!(v3.z, 1.0*1.3 - 2.1*(-2.0));
+    let v3 = v2.cross(&v1);
+    assert_eq!(v3.x, 1.3*(-3.4) - (-4.8)*2.1);
+    assert_eq!(v3.y, (-4.8)*1.0 - (-3.4)*(-2.0));
+    assert_eq!(v3.z, (-2.0)*2.1 - 1.3*1.0);
+    assert_eq!(Vector3::EX.cross(&Vector3::EY), Vector3::EZ);
+    assert_eq!(Vector3::EY.cross(&Vector3::EZ), Vector3::EX);
+    assert_eq!(Vector3::EZ.cross(&Vector3::EX), Vector3::EY);
+  }
 
   /* Test for Display and FromStr
    */
-  // fmt
-  assert_eq!(format!("{}", v1), "V3[1,2.1,-3.4]");
-  // from_str
-  let v0 = "V3[-2,1.3,-4.8]".parse::<Vector3>().unwrap();
-  assert_eq!(v0, v2);
-  assert_eq!(format!("{}", v0).parse::<Vector3>().unwrap(), v0);
-  let mut v00 = "v3[-2,1.3,-4.8]".parse::<Vector3>();
-  assert_eq!(v00, Err(Vector3ParseError::InvalidFormat));
-  v00 = "V3[-a,1.3,-4.8]".parse::<Vector3>();
-  if let Err(_e) = v00 { assert!(true); };
-  v00 = "V3[-2,1.-,-4.8]".parse::<Vector3>();
-  if let Err(_e) = v00 { assert!(true); };
-  v00 = "V3[-2,1.3,*4.8]".parse::<Vector3>();
-  if let Err(_e) = v00 { assert!(true); };
+  #[test]
+  fn test_show_read() {
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    let v2 = Vector3::new(-2.0, 1.3, -4.8);
+    // fmt
+    assert_eq!(format!("{}", v1), "V3[1,2.1,-3.4]");
+    // from_str
+    let v0 = "V3[-2,1.3,-4.8]".parse::<Vector3>().unwrap();
+    assert_eq!(v0, v2);
+    assert_eq!(format!("{}", v0).parse::<Vector3>().unwrap(), v0);
+    let mut v00 = "v3[-2,1.3,-4.8]".parse::<Vector3>();
+    assert_eq!(v00, Err(Vector3ParseError::InvalidFormat));
+    v00 = "V3[-a,1.3,-4.8]".parse::<Vector3>();
+    if let Err(_e) = v00 { assert!(true); };
+    v00 = "V3[-2,1.-,-4.8]".parse::<Vector3>();
+    if let Err(_e) = v00 { assert!(true); };
+    v00 = "V3[-2,1.3,*4.8]".parse::<Vector3>();
+    if let Err(_e) = v00 { assert!(true); };
+  }
 
-  /* Test for Neg, Add, Sub, Mul, Div
+
+  /* Test for Neg, Add, Sub, Mul, Div calculation
    */
-  // neg
-  assert_eq!(v1.neg(), Vector3::new(-1.0, -2.1, 3.4));
-  assert_eq!(v2.neg(), Vector3::new(2.0, -1.3, 4.8));
-  // add
-  assert_eq!(v1 + Vector3::O, v1);
-  assert_eq!(v1 + v2, Vector3::new(1.0 + -2.0, 2.1 + 1.3, -3.4 + (-4.8)));
-  assert_eq!(v2 + v1, Vector3::new(1.0 + -2.0, 2.1 + 1.3, -3.4 + (-4.8)));
-  // sub
-  assert_eq!(v1 - Vector3::O, v1);
-  assert_eq!(v1 - v2, Vector3::new(1.0 - (-2.0), 2.1 - 1.3, -3.4 - (-4.8)));
-  assert_eq!(v1 - v2.neg(), v1 + v2);
-  // mul
-  assert_eq!(v1 * 0.0, Vector3::O);
-  assert_eq!(v1 * 1.0, v1);
-  assert_eq!(v1 * 3.0, Vector3::new(1.0 * 3.0, 2.1 * 3.0, -3.4 * 3.0));
-  assert_eq!(0.0 * v2, Vector3::O);
-  assert_eq!(1.0 * v2, v2);
-  assert_eq!(3.0 * v2, Vector3::new(3.0*(-2.0), 3.0*1.3, 3.0*(-4.8)));
-  // v1:  1.0, 2.1, -3.4
-  // v2: -2.0, 1.3, -4.8
-  let r = v1.cross(&v2);
-  assert_eq!(r, Vector3::new(2.1 * -4.8 - (-3.4) * 1.3, -3.4 * -2.0 - (-4.8) * 1.0, 1.0 * 1.3 - 2.1 * -2.0));
-  assert_eq!(v1 * v2, r);
-  // div
-  assert_eq!(v1 / 1.0, Some(v1));
-  assert_eq!(v1 / 3.0, Some(Vector3::new(1.0 / 3.0, 2.1 / 3.0, -3.4 / 3.0)));
-  assert_eq!(v1 / 0.0, None);
+  #[test]
+  fn test_calc() {
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    let v2 = Vector3::new(-2.0, 1.3, -4.8);
+    // neg
+    assert_eq!(v1.neg(), Vector3::new(-1.0, -2.1, 3.4));
+    assert_eq!(v2.neg(), Vector3::new(2.0, -1.3, 4.8));
+    // add
+    assert_eq!(v1 + Vector3::O, v1);
+    assert_eq!(v1 + v2, Vector3::new(1.0 + -2.0, 2.1 + 1.3, -3.4 + (-4.8)));
+    assert_eq!(v2 + v1, Vector3::new(1.0 + -2.0, 2.1 + 1.3, -3.4 + (-4.8)));
+    // sub
+    assert_eq!(v1 - Vector3::O, v1);
+    assert_eq!(v1 - v2, Vector3::new(1.0 - (-2.0), 2.1 - 1.3, -3.4 - (-4.8)));
+    assert_eq!(v1 - v2.neg(), v1 + v2);
+    // mul
+    assert_eq!(v1 * 0.0, Vector3::O);
+    assert_eq!(v1 * 1.0, v1);
+    assert_eq!(v1 * 3.0, Vector3::new(1.0 * 3.0, 2.1 * 3.0, -3.4 * 3.0));
+    assert_eq!(0.0 * v2, Vector3::O);
+    assert_eq!(1.0 * v2, v2);
+    assert_eq!(3.0 * v2, Vector3::new(3.0*(-2.0), 3.0*1.3, 3.0*(-4.8)));
+    // v1:  1.0, 2.1, -3.4
+    // v2: -2.0, 1.3, -4.8
+    let r = v1.cross(&v2);
+    assert_eq!(r, Vector3::new(2.1 * -4.8 - (-3.4) * 1.3, -3.4 * -2.0 - (-4.8) * 1.0, 1.0 * 1.3 - 2.1 * -2.0));
+    assert_eq!(v1 * v2, r);
+    // div
+    assert_eq!(v1 / 1.0, Some(v1));
+    assert_eq!(v1 / 3.0, Some(Vector3::new(1.0 / 3.0, 2.1 / 3.0, -3.4 / 3.0)));
+    assert_eq!(v1 / 0.0, None);
+  }
+
 
   /* Test for BasicMatrix
    */
-  // norm
-  let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1 + (-3.4) * (-3.4));
-  assert_eq!(v1.norm(), len);
-  // near
-  assert_eq!(v1.near(&v1), true);
-  let v4 = Vector3::new(1.0, 2.1, -3.4);
-  assert_eq!(v1.near(&v4), true);
-  let v4 = Vector3::new(1.00001, 2.10001, -3.40001);
-  assert_eq!(v1.near(&v4), true);
+  #[test]
+  fn test_matrix() {
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    // norm
+    let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1 + (-3.4) * (-3.4));
+    assert_eq!(v1.norm(), len);
+    // near
+    assert_eq!(v1.near(&v1), true);
+    let v4 = Vector3::new(1.0, 2.1, -3.4);
+    assert_eq!(v1.near(&v4), true);
+    let v4 = Vector3::new(1.00001, 2.10001, -3.40001);
+    assert_eq!(v1.near(&v4), true);
+  }
 
   /* Test for Vector
    */
-  // dot
-  assert_eq!(v1.dot(&v1), len * len);
-  assert_eq!(v1.dot(&v2), 1.0 * (-2.0) + 2.1 * 1.3 + (-3.4) * (-4.8));
-  assert_eq!(Vector3::O.dot(&v1), 0.0);
-  assert_eq!(Vector3::EX.dot(&Vector3::EY), 0.0);
-  // square
-  assert_eq!(Vector3::O.square(), 0.0);
-  assert_eq!(Vector3::EX.square(), 1.0);
-  assert_eq!(v1.square(), 1.0 * 1.0 + 2.1 * 2.1 + (-3.4) * (-3.4));
-  // normalize
-  assert_eq!(Vector3::EX.normalize(), Some(Vector3::new(1.0, 0.0, 0.0)));
-  assert_eq!(v1.normalize(), Some(Vector3::new(1.0 / len, 2.1 / len, (-3.4) / len)));
-  assert_eq!(Vector3::O.normalize(), None);
+  #[test]
+  fn test_vector() {
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    let v2 = Vector3::new(-2.0, 1.3, -4.8);
+    let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1 + (-3.4) * (-3.4));
+    // dot
+    assert_eq!(v1.dot(&v1), len * len);
+    assert_eq!(v1.dot(&v2), 1.0 * (-2.0) + 2.1 * 1.3 + (-3.4) * (-4.8));
+    assert_eq!(Vector3::O.dot(&v1), 0.0);
+    assert_eq!(Vector3::EX.dot(&Vector3::EY), 0.0);
+    // square
+    assert_eq!(Vector3::O.square(), 0.0);
+    assert_eq!(Vector3::EX.square(), 1.0);
+    assert_eq!(v1.square(), 1.0 * 1.0 + 2.1 * 2.1 + (-3.4) * (-3.4));
+    // normalize
+    assert_eq!(Vector3::EX.normalize(), Some(Vector3::new(1.0, 0.0, 0.0)));
+    assert_eq!(v1.normalize(), Some(Vector3::new(1.0 / len, 2.1 / len, (-3.4) / len)));
+    assert_eq!(Vector3::O.normalize(), None);
+  }
 
   /* Test for From
    */
-  // from
-  let a0: [Flt; 3] = v1.try_into().unwrap();
-  assert_eq!(a0, [1.0, 2.1, -3.4]);
-
-
+  #[test]
+  fn test_from() {
+    let v1 = Vector3::new(1.0, 2.1, -3.4);
+    // from
+    let a0: [Flt; 3] = v1.try_into().unwrap();
+    assert_eq!(a0, [1.0, 2.1, -3.4]);
+  }
 
 }
-
-
 
 pub type Position3  = Vector3;
 
@@ -405,13 +429,18 @@ impl Position3 {
   }
 }
 
-#[test]
-fn test_position3() {
-  // init_pos
-  let p1 = Position3::init_pos(2.1, 4.3, -5.2);
-  assert_eq!(p1, Vector3::new(2.1, 4.3, -5.2));
-  let p1 = Position3::init_pos(0.0, 0.0, 0.0);
-  assert_eq!(p1, Vector3::O);
+#[cfg(test)]
+mod test_position {
+  use super::*;
+
+  #[test]
+  fn test_position3() {
+    // init_pos
+    let p1 = Position3::init_pos(2.1, 4.3, -5.2);
+    assert_eq!(p1, Vector3::new(2.1, 4.3, -5.2));
+    let p1 = Position3::init_pos(0.0, 0.0, 0.0);
+    assert_eq!(p1, Vector3::O);
+  }
 }
 
 pub type Direction3 = Vector3;
@@ -435,24 +464,28 @@ impl Direction3 {
   }
 }
 
-#[test]
-fn test_direction3() {
-  // init_dir
-  let d1 = Direction3::init_dir(2.1, 4.3, -5.2);
-  let d1len = f64::sqrt(2.1 * 2.1 + 4.3 * 4.3 + (-5.2) * (-5.2));
-  assert_eq!(d1, Some(Vector3::new(2.1 / d1len, 4.3 / d1len, (-5.2) / d1len)));
-  let d2 = Direction3::init_dir(0.0, 0.0, 0.0);
-  assert_eq!(d2, None);
-  // init_dir_fron_angle
-  let d3 = Direction3::init_dir_from_angle(0.0, 0.0);
-  assert_eq!(d3, Vector3::EY);
-  let d3 = Direction3::init_dir_from_angle(PI_2ND, 0.0);
-  assert_eq!(d3.near(&Vector3::EX), true);
-  let d3 = Direction3::init_dir_from_angle(PI_2ND, PI_2ND);
-  assert_eq!(d3.near(&Vector3::EZ), true);
+#[cfg(test)]
+mod tests_direction {
+  use super::*;
+  use crate::ray::{PI_2ND};
+
+  #[test]
+  fn test_direction3() {
+    // init_dir
+    let d1 = Direction3::init_dir(2.1, 4.3, -5.2);
+    let d1len = f64::sqrt(2.1 * 2.1 + 4.3 * 4.3 + (-5.2) * (-5.2));
+    assert_eq!(d1, Some(Vector3::new(2.1 / d1len, 4.3 / d1len, (-5.2) / d1len)));
+    let d2 = Direction3::init_dir(0.0, 0.0, 0.0);
+    assert_eq!(d2, None);
+    // init_dir_fron_angle
+    let d3 = Direction3::init_dir_from_angle(0.0, 0.0);
+    assert_eq!(d3, Vector3::EY);
+    let d3 = Direction3::init_dir_from_angle(PI_2ND, 0.0);
+    assert_eq!(d3.near(&Vector3::EX), true);
+    let d3 = Direction3::init_dir_from_angle(PI_2ND, PI_2ND);
+    assert_eq!(d3.near(&Vector3::EZ), true);
+  }
 }
-
-
 
 // Vector2
 
@@ -460,6 +493,17 @@ fn test_direction3() {
 pub struct Vector2 {
   pub x: Flt,
   pub y: Flt
+}
+
+impl Vector2 {
+  pub const O:  Vector2 = Vector2 {x: 0.0, y: 0.0};
+  pub const EX: Vector2 = Vector2 {x: 1.0, y: 0.0};
+  pub const EY: Vector2 = Vector2 {x: 0.0, y: 1.0};
+
+  #[inline(always)]
+  pub fn new(x: Flt, y: Flt) -> Self {
+    Vector2 {x, y}
+  }
 }
 
 impl fmt::Display for Vector2 {
@@ -477,17 +521,6 @@ impl FromStr for Vector2 {
     let x = caps[1].parse::<Flt>()?;
     let y = caps[2].parse::<Flt>()?;
     Ok(Vector2::new(x, y))
-  }
-}
-
-impl Vector2 {
-  pub const O:  Vector2 = Vector2 {x: 0.0, y: 0.0};
-  pub const EX: Vector2 = Vector2 {x: 1.0, y: 0.0};
-  pub const EY: Vector2 = Vector2 {x: 0.0, y: 1.0};
-
-  #[inline(always)]
-  pub fn new(x: Flt, y: Flt) -> Self {
-    Vector2 {x, y}
   }
 }
 
@@ -557,69 +590,84 @@ impl Vector for Vector2 {
 
 }
 
-#[test]
-fn test_vector2() {
-  // O
-  assert_eq!(Vector2::O.x, 0.0);
-  assert_eq!(Vector2::O.y, 0.0);
-  // EX
-  assert_eq!(Vector2::EX.x, 1.0);
-  assert_eq!(Vector2::EX.y, 0.0);
-  // EY
-  assert_eq!(Vector2::EY.x, 0.0);
-  assert_eq!(Vector2::EY.y, 1.0);
+#[cfg(test)]
+mod test_vector2 {
+  use super::*;
 
-  // new
-  let v0 = Vector2::new(1.0, 2.1);
-  assert_eq!(v0.x, 1.0);
-  assert_eq!(v0.y, 2.1);
-  assert_eq!(format!("{}", v0), "V2[1,2.1]");
+  #[test]
+  fn test_vector2() {
+    // O
+    assert_eq!(Vector2::O.x, 0.0);
+    assert_eq!(Vector2::O.y, 0.0);
+    // EX
+    assert_eq!(Vector2::EX.x, 1.0);
+    assert_eq!(Vector2::EX.y, 0.0);
+    // EY
+    assert_eq!(Vector2::EY.x, 0.0);
+    assert_eq!(Vector2::EY.y, 1.0);
 
-  let v1 = Vector2::new(1.0, 2.1);
-  let v2 = Vector2::new(-2.0, 1.3);
+    // new
+    let v0 = Vector2::new(1.0, 2.1);
+    assert_eq!(v0.x, 1.0);
+    assert_eq!(v0.y, 2.1);
+    assert_eq!(format!("{}", v0), "V2[1,2.1]");
+  }
 
-  // add
-  assert_eq!(v1 + Vector2::O, v1);
-  assert_eq!(v1 + v2, Vector2::new(1.0 + -2.0, 2.1 + 1.3));
-  assert_eq!(v2 + v1, Vector2::new(1.0 + -2.0, 2.1 + 1.3));
-  // sub
-  assert_eq!(v1 - Vector2::O, v1);
-  assert_eq!(v1 - v2, Vector2::new(1.0 - (-2.0), 2.1 - 1.3));
-  // div
-  assert_eq!(v1 / 1.0, Some(v1));
-  assert_eq!(v1 / 3.0, Some(Vector2::new(1.0 / 3.0, 2.1 / 3.0)));
-  assert_eq!(v1 / 0.0, None);
+  #[test]
+  fn test_calc() {
+    let v1 = Vector2::new(1.0, 2.1);
+    let v2 = Vector2::new(-2.0, 1.3);
+    // add
+    assert_eq!(v1 + Vector2::O, v1);
+    assert_eq!(v1 + v2, Vector2::new(1.0 + -2.0, 2.1 + 1.3));
+    assert_eq!(v2 + v1, Vector2::new(1.0 + -2.0, 2.1 + 1.3));
+    // sub
+    assert_eq!(v1 - Vector2::O, v1);
+    assert_eq!(v1 - v2, Vector2::new(1.0 - (-2.0), 2.1 - 1.3));
+    // div
+    assert_eq!(v1 / 1.0, Some(v1));
+    assert_eq!(v1 / 3.0, Some(Vector2::new(1.0 / 3.0, 2.1 / 3.0)));
+    assert_eq!(v1 / 0.0, None);
+  }
 
   /* Test for BasicMatrix
    */
-  // norm
-  let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1);
-  assert_eq!(v1.norm(), len);
-  // near
-  assert_eq!(v1.near(&v1), true);
-  let v4 = Vector2::new(1.0, 2.1);
-  assert_eq!(v1.near(&v4), true);
-  let v4 = Vector2::new(1.00001, 2.10001);
-  assert_eq!(v1.near(&v4), true);
+  #[test]
+  fn test_matrix() {
+    let v1 = Vector2::new(1.0, 2.1);
+    // norm
+    let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1);
+    assert_eq!(v1.norm(), len);
+    // near
+    assert_eq!(v1.near(&v1), true);
+    let v4 = Vector2::new(1.0, 2.1);
+    assert_eq!(v1.near(&v4), true);
+    let v4 = Vector2::new(1.00001, 2.10001);
+    assert_eq!(v1.near(&v4), true);
+  }
 
   /* Test for Vector
    */
-  // dot
-  assert_eq!(v1.dot(&v1), len * len);
-  assert_eq!(v1.dot(&v2), 1.0 * (-2.0) + 2.1 * 1.3);
-  assert_eq!(Vector2::O.dot(&v1), 0.0);
-  assert_eq!(Vector2::EX.dot(&Vector2::EY), 0.0);
-  // square
-  assert_eq!(Vector2::O.square(), 0.0);
-  assert_eq!(Vector2::EX.square(), 1.0);
-  assert_eq!(v1.square(), 1.0 * 1.0 + 2.1 * 2.1);
-  // normalize
-  assert_eq!(Vector2::EX.normalize(), Some(Vector2::new(1.0, 0.0)));
-  assert_eq!(v1.normalize(), Some(Vector2::new(1.0 / len, 2.1 / len)));
-  assert_eq!(Vector2::O.normalize(), None);
-
+  #[test]
+  fn test_vector() {
+    let v1 = Vector2::new(1.0, 2.1);
+    let v2 = Vector2::new(-2.0, 1.3);
+    let len = f64::sqrt(1.0 * 1.0 + 2.1 * 2.1);
+    // dot
+    assert_eq!(v1.dot(&v1), len * len);
+    assert_eq!(v1.dot(&v2), 1.0 * (-2.0) + 2.1 * 1.3);
+    assert_eq!(Vector2::O.dot(&v1), 0.0);
+    assert_eq!(Vector2::EX.dot(&Vector2::EY), 0.0);
+    // square
+    assert_eq!(Vector2::O.square(), 0.0);
+    assert_eq!(Vector2::EX.square(), 1.0);
+    assert_eq!(v1.square(), 1.0 * 1.0 + 2.1 * 2.1);
+    // normalize
+    assert_eq!(Vector2::EX.normalize(), Some(Vector2::new(1.0, 0.0)));
+    assert_eq!(v1.normalize(), Some(Vector2::new(1.0 / len, 2.1 / len)));
+    assert_eq!(Vector2::O.normalize(), None);
+  }
 }
-
 
 // ---------------------
 // Ray
@@ -689,23 +737,27 @@ impl FromStr for Ray {
 
 pub type SurfacePoint = Ray;
 
-#[test]
-fn test_ray() {
-  let p1 = Position3::init_pos(1.0, 2.0, 3.0);
-  let d1 = Direction3::init_dir(1.0, 1.0, 1.0);
-  let r1 = Ray::new(&p1, &(d1.unwrap())).unwrap();
-  assert_eq!(r1, Ray::new(&Vector3::new(1.0, 2.0, 3.0), &Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)).unwrap());
-  assert_eq!(format!("{}", r1), "RAY[V3[1,2,3],V3[0.5773502691896258,0.5773502691896258,0.5773502691896258]]");
-  let r2 = Ray::from_str("RAY[V3[0.5,1.2,0.1],V3[-1.0,1.0,2.5]]");
-  let r22 = r2.unwrap();
-  assert_eq!(r22, Ray {pos: Position3::init_pos(0.5, 1.2, 0.1), dir: Direction3::init_dir(-1.0, 1.0, 2.5).unwrap()});
-  // target
-  let s1 = f64::sqrt(1.0 / 3.0) * 2.0;
-  assert_eq!(r1.target(2.0), Vector3::new(1.0 + s1, 2.0 + s1, 3.0 + s1));
-  let s2 = -1.2 / f64::sqrt(1.0 + 1.0 + 2.5 * 2.5);
-  assert_eq!(r22.target(-1.2), Vector3::new(0.5 + (-1.0) * s2, 1.2 + 1.0 * s2, 0.1 + 2.5 * s2));
-}
+#[cfg(test)]
+mod test_ray {
+  use super::*;
 
+  #[test]
+  fn test_ray() {
+    let p1 = Position3::init_pos(1.0, 2.0, 3.0);
+    let d1 = Direction3::init_dir(1.0, 1.0, 1.0);
+    let r1 = Ray::new(&p1, &(d1.unwrap())).unwrap();
+    assert_eq!(r1, Ray::new(&Vector3::new(1.0, 2.0, 3.0), &Vector3::new(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)).unwrap());
+    assert_eq!(format!("{}", r1), "RAY[V3[1,2,3],V3[0.5773502691896258,0.5773502691896258,0.5773502691896258]]");
+    let r2 = Ray::from_str("RAY[V3[0.5,1.2,0.1],V3[-1.0,1.0,2.5]]");
+    let r22 = r2.unwrap();
+    assert_eq!(r22, Ray {pos: Position3::init_pos(0.5, 1.2, 0.1), dir: Direction3::init_dir(-1.0, 1.0, 2.5).unwrap()});
+    // target
+    let s1 = f64::sqrt(1.0 / 3.0) * 2.0;
+    assert_eq!(r1.target(2.0), Vector3::new(1.0 + s1, 2.0 + s1, 3.0 + s1));
+    let s2 = -1.2 / f64::sqrt(1.0 + 1.0 + 2.5 * 2.5);
+    assert_eq!(r22.target(-1.2), Vector3::new(0.5 + (-1.0) * s2, 1.2 + 1.0 * s2, 0.1 + 2.5 * s2));
+  }
+}
 
 // SUPPORT FUNCTIONS
 

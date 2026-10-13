@@ -308,170 +308,175 @@ fn test_point() {
   assert!((rr1.dir.length() - 1.0).abs() < NEARLY0);
 }
 
-#[test]
-fn test_plane() {
-  // new, new_from_coefficient, new_from_dir_and_pos
-  let n = Vector3::new(1.0, 2.0, 3.0);
-  let len = n.norm();
-  let nvec = n.normalize().unwrap();
-  let p = Position3::new(0.0, 1.0, 0.0);
-  let dist = -2.0 / len;
-  let p1 = Shape::new_plane(&nvec, dist);
-  let p2 = Shape::new_plane_from_coefficient(1.0, 2.0, 3.0, 2.0);
-  let p3 = Shape::new_plane_from_dir_and_pos(&n, &p);
-  assert_eq!(p1, p2);
-  assert_eq!(p1, p3);
-  assert_eq!(p2, p3);
-  // get_normal
-  assert_eq!(p2.get_normal(&p).unwrap(), nvec);
-  // distance
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EY));
-  assert_eq!(p1.distance(&r1.unwrap()), Some((Vector2::O, 1.0, None)));
-  //let p4 = Plane::new(&Vector3::EY, 0.0);
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &Vector3::EX); // 光が平面に並行
-  assert_eq!(p1.distance(&r1.unwrap()), None);
-  let r1 = Ray::new(&Vector3::new(0.0, 5.0, 0.0), &nvec); // 光の後ろにある
-  assert_eq!(p1.distance(&r1.unwrap()), None);
-  // n_surface
-  assert_eq!(p1.n_surface(), 1);
-  assert_eq!(p2.n_surface(), 1);
-  // surface_area
-  assert_eq!(p1.surface_area(), f64::INFINITY);
-  assert_eq!(p2.surface_area(), f64::INFINITY);
-  // random_point
-  assert_eq!(p1.random_point(), Ray::new(&Vector3::O, &nvec).unwrap());
-}
+#[cfg(test)]
+mod test_shape {
+  use super::*;
+  
+  #[test]
+  fn test_plane() {
+    // new, new_from_coefficient, new_from_dir_and_pos
+    let n = Vector3::new(1.0, 2.0, 3.0);
+    let len = n.norm();
+    let nvec = n.normalize().unwrap();
+    let p = Position3::new(0.0, 1.0, 0.0);
+    let dist = -2.0 / len;
+    let p1 = Shape::new_plane(&nvec, dist);
+    let p2 = Shape::new_plane_from_coefficient(1.0, 2.0, 3.0, 2.0);
+    let p3 = Shape::new_plane_from_dir_and_pos(&n, &p);
+    assert_eq!(p1, p2);
+    assert_eq!(p1, p3);
+    assert_eq!(p2, p3);
+    // get_normal
+    assert_eq!(p2.get_normal(&p).unwrap(), nvec);
+    // distance
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EY));
+    assert_eq!(p1.distance(&r1.unwrap()), Some((Vector2::O, 1.0, None)));
+    //let p4 = Plane::new(&Vector3::EY, 0.0);
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &Vector3::EX); // 光が平面に並行
+    assert_eq!(p1.distance(&r1.unwrap()), None);
+    let r1 = Ray::new(&Vector3::new(0.0, 5.0, 0.0), &nvec); // 光の後ろにある
+    assert_eq!(p1.distance(&r1.unwrap()), None);
+    // n_surface
+    assert_eq!(p1.n_surface(), 1);
+    assert_eq!(p2.n_surface(), 1);
+    // surface_area
+    assert_eq!(p1.surface_area(), f64::INFINITY);
+    assert_eq!(p2.surface_area(), f64::INFINITY);
+    // random_point
+    assert_eq!(p1.random_point(), Ray::new(&Vector3::O, &nvec).unwrap());
+  }
 
-#[test]
-fn test_sphere() {
-  // new
-  let s1 = Shape::new_sphere(&Vector3::new(2.0, 0.0, 0.0), 2.0);
-  if let Shape::Sphere {center, radius, radius2} = s1 {
-    assert_eq!(center, Vector3::new(2.0, 0.0, 0.0));
-    assert_eq!(radius, 2.0);
-    assert_eq!(radius2, 4.0);
-  };
-  // get_normal
-  assert_eq!(s1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), -Vector3::EX);
-  let rt2 = f64::sqrt(2.0);
-  let v1 = s1.get_normal(&Vector3::new(2.0+2.0*rt2, 2.0*rt2, 2.0*rt2)).unwrap();
-  let v2 = Vector3::new(1.0, 1.0, 1.0).normalize().unwrap();
-  assert!(v1.near(&v2));
-  // distance
-  let r1 = Ray::new(&Vector3::new(2.0, 0.0, -3.5), &Vector3::EZ).unwrap(); // Z軸に真っ直ぐ
-  assert_eq!(s1.distance(&r1), Some((Vector2::O, 1.5, None))); // 球より1.5後方
-  let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &Vector3::new(-2.0, 0.0, 4.0).normalize().unwrap()).unwrap(); // 外から原点へ
-  assert_eq!(s1.distance(&r1), Some((Vector2::O, 2.6832815729997463, None)));
-  let r1 = Ray::new(&Vector3::new(2.0, 0.0, 0.0), &Vector3::EZ).unwrap(); // 内部から出る光
-  assert_eq!(s1.distance(&r1), Some((Vector2::O, 2.0, None))); // 半径と同じはず
-  let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &(-Vector3::EZ)).unwrap(); // 光の後ろにある
-  assert_eq!(s1.distance(&r1), None); // 交点なし
-  let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &Vector3::EY).unwrap(); // 光と交差しない
-  assert_eq!(s1.distance(&r1), None); // 交点なし
-  // n_surface
-  assert_eq!(s1.n_surface(), 1);
-  // surface_area
-  assert_eq!(s1.surface_area(), PI4*2.0*2.0);
-  // random_point
-  for _i in 0..1000 {
-    let p = s1.random_point();
-    if let Shape::Sphere {center, ..} = s1 {
-      assert!((f64::abs((p.pos - center).norm() - 2.0)) < NEARLY0);
+  #[test]
+  fn test_sphere() {
+    // new
+    let s1 = Shape::new_sphere(&Vector3::new(2.0, 0.0, 0.0), 2.0);
+    if let Shape::Sphere {center, radius, radius2} = s1 {
+      assert_eq!(center, Vector3::new(2.0, 0.0, 0.0));
+      assert_eq!(radius, 2.0);
+      assert_eq!(radius2, 4.0);
     };
-    let d = s1.get_normal(&p.pos).unwrap();
-    assert!(p.dir.near(&d));
+    // get_normal
+    assert_eq!(s1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), -Vector3::EX);
+    let rt2 = f64::sqrt(2.0);
+    let v1 = s1.get_normal(&Vector3::new(2.0+2.0*rt2, 2.0*rt2, 2.0*rt2)).unwrap();
+    let v2 = Vector3::new(1.0, 1.0, 1.0).normalize().unwrap();
+    assert!(v1.near(&v2));
+    // distance
+    let r1 = Ray::new(&Vector3::new(2.0, 0.0, -3.5), &Vector3::EZ).unwrap(); // Z軸に真っ直ぐ
+    assert_eq!(s1.distance(&r1), Some((Vector2::O, 1.5, None))); // 球より1.5後方
+    let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &Vector3::new(-2.0, 0.0, 4.0).normalize().unwrap()).unwrap(); // 外から原点へ
+    assert_eq!(s1.distance(&r1), Some((Vector2::O, 2.6832815729997463, None)));
+    let r1 = Ray::new(&Vector3::new(2.0, 0.0, 0.0), &Vector3::EZ).unwrap(); // 内部から出る光
+    assert_eq!(s1.distance(&r1), Some((Vector2::O, 2.0, None))); // 半径と同じはず
+    let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &(-Vector3::EZ)).unwrap(); // 光の後ろにある
+    assert_eq!(s1.distance(&r1), None); // 交点なし
+    let r1 = Ray::new(&Vector3::new(2.0, 0.0, -4.0), &Vector3::EY).unwrap(); // 光と交差しない
+    assert_eq!(s1.distance(&r1), None); // 交点なし
+    // n_surface
+    assert_eq!(s1.n_surface(), 1);
+    // surface_area
+    assert_eq!(s1.surface_area(), PI4*2.0*2.0);
+    // random_point
+    for _i in 0..1000 {
+      let p = s1.random_point();
+      if let Shape::Sphere {center, ..} = s1 {
+        assert!((f64::abs((p.pos - center).norm() - 2.0)) < NEARLY0);
+      };
+      let d = s1.get_normal(&p.pos).unwrap();
+      assert!(p.dir.near(&d));
+    }
   }
-}
 
-#[test]
-fn test_triangle() {
-  // new
-  let t1 = Shape::new_triangle(&Vector3::new(0.0, 0.0, 0.0), &Vector3::EY, &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
-  assert_eq!(t1, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
-  let t2 = Shape::new_triangle_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
-  assert_eq!(t1, t2);
-  let t3 = Shape::new_triangle_with_normal(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0), &Vector3::new(0.0, -1.0, 0.0));
-  assert_eq!(t3, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: -Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
-  let t4 = Shape::new_triangle_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 1.0, 1.0), &Vector3::new(1.0, 1.0, 0.0));
-  assert_eq!(t4, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap(), dir1: Vector3::new(1.0, 1.0, 1.0), dir2: Vector3::new(1.0, 1.0, 0.0)});
-  // get_normal
-  assert_eq!(t1.get_normal(&Vector3::new(0.5, 0.0, 0.5)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t1.get_normal(&Vector3::new(1.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t4.get_normal(&Vector3::new(0.5, 0.5, 0.5)).unwrap(), Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap());
-  // distance
-  let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.5), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.0), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.0), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.0, 0.25), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(1.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.25), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 1.0), &(-Vector3::EY)).unwrap(); // ポリゴンと交差しない
-  assert_eq!(t1.distance(&r1), None);
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EZ)).unwrap(); // ポリゴンに並行
-  assert_eq!(t1.distance(&r1), None);
-  // n_surface
-  assert_eq!(t1.n_surface(), 1);
-  // surface_area
-  assert_eq!(t1.surface_area(), 2.0 * 1.0 / 2.0);
-  assert_eq!(t4.surface_area(), f64::sqrt(1.0 + 1.0) * 1.0 / 2.0);
-  // random_point
-  for _i in 0..1000 {
-    let p = t1.random_point();
-    assert_eq!(p.dir, Vector3::EY);
-    assert_eq!(p.pos.y, 0.0);
-    // x1, y1 = (1.0, 1.0)
-    // x2, y2 = (2.0, 0.0)
-    let a = (2.0 * p.pos.z) / (2.0 * 1.0 - 1.0 * 0.0);
-    let b = (p.pos.x - a * 1.0) / 2.0;
-    assert!(a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0 && a + b <= 1.0);
+  #[test]
+  fn test_triangle() {
+    // new
+    let t1 = Shape::new_triangle(&Vector3::new(0.0, 0.0, 0.0), &Vector3::EY, &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
+    assert_eq!(t1, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
+    let t2 = Shape::new_triangle_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
+    assert_eq!(t1, t2);
+    let t3 = Shape::new_triangle_with_normal(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0), &Vector3::new(0.0, -1.0, 0.0));
+    assert_eq!(t3, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: -Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
+    let t4 = Shape::new_triangle_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 1.0, 1.0), &Vector3::new(1.0, 1.0, 0.0));
+    assert_eq!(t4, Shape::Triangle {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap(), dir1: Vector3::new(1.0, 1.0, 1.0), dir2: Vector3::new(1.0, 1.0, 0.0)});
+    // get_normal
+    assert_eq!(t1.get_normal(&Vector3::new(0.5, 0.0, 0.5)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t1.get_normal(&Vector3::new(1.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t4.get_normal(&Vector3::new(0.5, 0.5, 0.5)).unwrap(), Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap());
+    // distance
+    let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.5), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.0), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.0), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.0, 0.25), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(1.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.25), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 1.0), &(-Vector3::EY)).unwrap(); // ポリゴンと交差しない
+    assert_eq!(t1.distance(&r1), None);
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EZ)).unwrap(); // ポリゴンに並行
+    assert_eq!(t1.distance(&r1), None);
+    // n_surface
+    assert_eq!(t1.n_surface(), 1);
+    // surface_area
+    assert_eq!(t1.surface_area(), 2.0 * 1.0 / 2.0);
+    assert_eq!(t4.surface_area(), f64::sqrt(1.0 + 1.0) * 1.0 / 2.0);
+    // random_point
+    for _i in 0..1000 {
+      let p = t1.random_point();
+      assert_eq!(p.dir, Vector3::EY);
+      assert_eq!(p.pos.y, 0.0);
+      // x1, y1 = (1.0, 1.0)
+      // x2, y2 = (2.0, 0.0)
+      let a = (2.0 * p.pos.z) / (2.0 * 1.0 - 1.0 * 0.0);
+      let b = (p.pos.x - a * 1.0) / 2.0;
+      assert!(a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0 && a + b <= 1.0);
+    }
   }
-}
 
-#[test]
-fn test_parallelogram() {
-  // new
-  let t1 = Shape::new_parallelogram(&Vector3::new(0.0, 0.0, 0.0), &Vector3::EY, &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
-  assert_eq!(t1, Shape::Parallelogram {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
-  let t2 = Shape::new_parallelogram_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
-  assert_eq!(t1, t2);
-  let t3 = Shape::new_parallelogram_with_normal(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0), &Vector3::new(0.0, -1.0, 0.0));
-  assert_eq!(t3, Shape::Parallelogram {pos: Vector3::new(0.0, 0.0, 0.0), nvec: -Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
-  let t4 = Shape::new_parallelogram_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 1.0, 1.0), &Vector3::new(1.0, 1.0, 0.0));
-  assert_eq!(t4, Shape::Parallelogram {pos: Vector3::O, nvec: Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap(), dir1: Vector3::new(1.0, 1.0, 1.0), dir2: Vector3::new(1.0, 1.0, 0.0)});
-  // get_normal
-  assert_eq!(t1.get_normal(&Vector3::new(0.5, 0.0, 0.5)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t1.get_normal(&Vector3::new(1.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
-  assert_eq!(t4.get_normal(&Vector3::new(0.5, 0.5, 0.5)).unwrap(), Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap());
-  // distance
-  let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.5), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.0), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(2.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.75), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.0), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.0, 0.25), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(1.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
-  assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.25), 2.0, None)));
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 1.0), &(-Vector3::EY)).unwrap(); // ポリゴンと交差しない
-  assert_eq!(t1.distance(&r1), None);
-  let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EZ)).unwrap(); // ポリゴンに並行
-  assert_eq!(t1.distance(&r1), None);
-  // n_surface
-  assert_eq!(t1.n_surface(), 1);
-  // surface_area
-  assert_eq!(t1.surface_area(), 2.0 * 1.0);
-  assert_eq!(t4.surface_area(), f64::sqrt(1.0 + 1.0) * 1.0);
-  // random_point
-  for _i in 0..1000 {
-    let p = t1.random_point();
-    assert_eq!(p.dir, Vector3::EY);
-    assert_eq!(p.pos.y, 0.0);
-    // x1, y1 = (1.0, 1.0)
-    // x2, y2 = (2.0, 0.0)
-    let a = (2.0 * p.pos.z) / (2.0 * 1.0 - 1.0 * 0.0);
-    let b = (p.pos.x - a * 1.0) / 2.0;
-    assert!(a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0 && a + b <= 2.0);
+  #[test]
+  fn test_parallelogram() {
+    // new
+    let t1 = Shape::new_parallelogram(&Vector3::new(0.0, 0.0, 0.0), &Vector3::EY, &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
+    assert_eq!(t1, Shape::Parallelogram {pos: Vector3::new(0.0, 0.0, 0.0), nvec: Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
+    let t2 = Shape::new_parallelogram_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0));
+    assert_eq!(t1, t2);
+    let t3 = Shape::new_parallelogram_with_normal(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 0.0, 1.0), &Vector3::new(2.0, 0.0, 0.0), &Vector3::new(0.0, -1.0, 0.0));
+    assert_eq!(t3, Shape::Parallelogram {pos: Vector3::new(0.0, 0.0, 0.0), nvec: -Vector3::EY, dir1: Vector3::new(1.0, 0.0, 1.0), dir2: Vector3::new(2.0, 0.0, 0.0)});
+    let t4 = Shape::new_parallelogram_with_points(&Vector3::new(0.0, 0.0, 0.0), &Vector3::new(1.0, 1.0, 1.0), &Vector3::new(1.0, 1.0, 0.0));
+    assert_eq!(t4, Shape::Parallelogram {pos: Vector3::O, nvec: Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap(), dir1: Vector3::new(1.0, 1.0, 1.0), dir2: Vector3::new(1.0, 1.0, 0.0)});
+    // get_normal
+    assert_eq!(t1.get_normal(&Vector3::new(0.5, 0.0, 0.5)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t1.get_normal(&Vector3::new(0.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t1.get_normal(&Vector3::new(1.0, 0.0, 0.0)).unwrap(), Vector3::new(0.0, 1.0, 0.0));
+    assert_eq!(t4.get_normal(&Vector3::new(0.5, 0.5, 0.5)).unwrap(), Vector3::new(-1.0, 1.0, 0.0).normalize().unwrap());
+    // distance
+    let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.5), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.0), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(2.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.75), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(0.5, 2.0, 0.0), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.0, 0.25), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(1.0, 2.0, 0.5), &(-Vector3::EY)).unwrap();
+    assert_eq!(t1.distance(&r1), Some((Vector2::new(0.5, 0.25), 2.0, None)));
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 1.0), &(-Vector3::EY)).unwrap(); // ポリゴンと交差しない
+    assert_eq!(t1.distance(&r1), None);
+    let r1 = Ray::new(&Vector3::new(0.0, 2.0, 0.0), &(-Vector3::EZ)).unwrap(); // ポリゴンに並行
+    assert_eq!(t1.distance(&r1), None);
+    // n_surface
+    assert_eq!(t1.n_surface(), 1);
+    // surface_area
+    assert_eq!(t1.surface_area(), 2.0 * 1.0);
+    assert_eq!(t4.surface_area(), f64::sqrt(1.0 + 1.0) * 1.0);
+    // random_point
+    for _i in 0..1000 {
+      let p = t1.random_point();
+      assert_eq!(p.dir, Vector3::EY);
+      assert_eq!(p.pos.y, 0.0);
+      // x1, y1 = (1.0, 1.0)
+      // x2, y2 = (2.0, 0.0)
+      let a = (2.0 * p.pos.z) / (2.0 * 1.0 - 1.0 * 0.0);
+      let b = (p.pos.x - a * 1.0) / 2.0;
+      assert!(a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0 && a + b <= 2.0);
+    }
   }
 }
 
