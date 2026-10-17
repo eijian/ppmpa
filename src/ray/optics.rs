@@ -12,9 +12,9 @@ use std::str::{FromStr};
 
 use regex::Regex;
 
-use kd_tree::{KdPoint, KdTree};
+use kd_tree::{KdPoint};
 
-use super::{Flt, NEARLY0, PI};
+use super::{Flt, NEARLY0};
 use super::algebra::{BasicMatrix, Direction3, Position3, Ray, Vector, Vector3, generate_random_dir4};
 
 // Wavelength (波長) -----------------------
@@ -56,25 +56,30 @@ impl FromStr for Wavelength {
   }
 }
 
-#[test]
-fn test_wl() {
-  // test1
-  let r = Wavelength::Red;
-  assert_eq!(r, Wavelength::Red);
-  assert_eq!(format!("{}", Wavelength::Red), "WL:Red");
-  assert_eq!(format!("{}", Wavelength::Green), "WL:Green");
-  assert_eq!(format!("{}", Wavelength::Blue), "WL:Blue");
-  let sr = "WL:Red";
-  assert_eq!(Wavelength::from_str(sr).unwrap(), Wavelength::Red);
-  let sg = "WL:Green";
-  assert_eq!(Wavelength::from_str(sg).unwrap(), Wavelength::Green);
-  let sb = "WL:Blue";
-  assert_eq!(Wavelength::from_str(sb).unwrap(), Wavelength::Blue);
-  // test2
-  let sx = "WL:aaa";
-  let wl = Wavelength::from_str(sx);
-  if let Err(e) = wl {
-    assert_eq!(e, "invalid wavelength: WL:aaa")
+#[cfg(test)]
+mod test_wl {
+  use super::*;
+
+  #[test]
+  fn test_self() {
+    // test1
+    let r = Wavelength::Red;
+    assert_eq!(r, Wavelength::Red);
+    assert_eq!(format!("{}", Wavelength::Red), "WL:Red");
+    assert_eq!(format!("{}", Wavelength::Green), "WL:Green");
+    assert_eq!(format!("{}", Wavelength::Blue), "WL:Blue");
+    let sr = "WL:Red";
+    assert_eq!(Wavelength::from_str(sr).unwrap(), Wavelength::Red);
+    let sg = "WL:Green";
+    assert_eq!(Wavelength::from_str(sg).unwrap(), Wavelength::Green);
+    let sb = "WL:Blue";
+    assert_eq!(Wavelength::from_str(sb).unwrap(), Wavelength::Blue);
+    // test2
+    let sx = "WL:aaa";
+    let wl = Wavelength::from_str(sx);
+    if let Err(e) = wl {
+      assert_eq!(e, "invalid wavelength: WL:aaa")
+    }
   }
 }
 
@@ -522,148 +527,159 @@ impl Mul<Color> for Flt {
   }
 }
 
-#[test]
-fn test_color() {
-  // new
-  let c1 = Color(0.4, 0.78, 1.5);
-  assert_eq!(format!("{}", c1), "COL[0.4,0.78,1.5]");
-  let c11 = Color::new(0.4, 0.78, 1.5);
-  assert_eq!(c1, c11);
+#[cfg(test)]
+mod tests_color {
+  use super::*;
+  use crate::ray::{PI};
 
-  let c2 = c1.normalize();
-  assert_eq!(c2, Color::new(0.4 / 1.5, 0.78 / 1.5, 1.5 / 1.5));
-  assert_eq!(c2.0 + c2.1 + c2.2, 0.4 / 1.5 + 0.78 / 1.5 + 1.5 / 1.5);
-  let c21 = Color::new_normalize(0.4, 0.78, 1.5);
-  assert_eq!(c2, c21);
+  #[test]
+  fn test_self() {
+    // new
+    let c1 = Color(0.4, 0.78, 1.5);
+    assert_eq!(format!("{}", c1), "COL[0.4,0.78,1.5]");
+    let c11 = Color::new(0.4, 0.78, 1.5);
+    assert_eq!(c1, c11);
 
-  let c2 = c1.probabilize();
-  assert_eq!(c2.0 + c2.1 + c2.2, 1.0);
-  assert_eq!(c2, Color::new(0.4 / (0.4+0.78+1.5), 0.78 / (0.4+0.78+1.5), 1.5 / (0.4+0.78+1.5)));
-  let c21 = Color::new_probabilize(0.4, 0.78, 1.5);
-  assert_eq!(c2, c21);
+    let c2 = c1.normalize();
+    assert_eq!(c2, Color::new(0.4 / 1.5, 0.78 / 1.5, 1.5 / 1.5));
+    assert_eq!(c2.0 + c2.1 + c2.2, 0.4 / 1.5 + 0.78 / 1.5 + 1.5 / 1.5);
+    let c21 = Color::new_normalize(0.4, 0.78, 1.5);
+    assert_eq!(c2, c21);
 
-  // new_by_kelvin
-  let c3 = Color::new_by_kelvin(4000.0);
-  assert_eq!(c3, Color(0.4067650069018957, 0.328309180155668, 0.2649258129424364));
-  let c3 = Color::new_by_kelvin2(4000.0);
-  assert_eq!(c3, Color(0.40556279942541984, 0.334143895006124, 0.2602933055684562));
-  let c3 = Color::new_by_kelvin3(4000.0);
-  assert_eq!(c3, Color(0.40666937779585205, 0.33346888979259864, 0.2598617324115495));
+    let c2 = c1.probabilize();
+    assert_eq!(c2.0 + c2.1 + c2.2, 1.0);
+    assert_eq!(c2, Color::new(0.4 / (0.4+0.78+1.5), 0.78 / (0.4+0.78+1.5), 1.5 / (0.4+0.78+1.5)));
+    let c21 = Color::new_probabilize(0.4, 0.78, 1.5);
+    assert_eq!(c2, c21);
 
-  let c3 = Color::new_by_kelvin(1900.0);
-  assert_eq!(c3, Color(0.6593131441917437, 0.3406868558082563, 0.0));
-  let c3 = Color::new_by_kelvin2(1900.0);
-  assert_eq!(c3, Color(0.6602706620002318, 0.3397293379997681, 0.0));
-  let c3 = Color::new_by_kelvin3(1900.0);
-  assert_eq!(c3, Color(0.6605019815059445, 0.3394980184940555, 0.0));
+    // new_by_kelvin
+    let c3 = Color::new_by_kelvin(4000.0);
+    assert_eq!(c3, Color(0.4067650069018957, 0.328309180155668, 0.2649258129424364));
+    let c3 = Color::new_by_kelvin2(4000.0);
+    assert_eq!(c3, Color(0.40556279942541984, 0.334143895006124, 0.2602933055684562));
+    let c3 = Color::new_by_kelvin3(4000.0);
+    assert_eq!(c3, Color(0.40666937779585205, 0.33346888979259864, 0.2598617324115495));
 
-  let c3 = Color::new_by_kelvin(6500.0);
-  assert_eq!(c3, Color(0.3359011141561401, 0.33472886389070683, 0.329370021953153));
-  let c3 = Color::new_by_kelvin2(6500.0);
-  assert_eq!(c3, Color(0.33663266161341554, 0.32787117091709067, 0.3354961674694938));
-  let c3 = Color::new_by_kelvin3(6500.0);
-  assert_eq!(c3, Color(0.33692722371967654, 0.3288409703504043, 0.33423180592991913));
+    let c3 = Color::new_by_kelvin(1900.0);
+    assert_eq!(c3, Color(0.6593131441917437, 0.3406868558082563, 0.0));
+    let c3 = Color::new_by_kelvin2(1900.0);
+    assert_eq!(c3, Color(0.6602706620002318, 0.3397293379997681, 0.0));
+    let c3 = Color::new_by_kelvin3(1900.0);
+    assert_eq!(c3, Color(0.6605019815059445, 0.3394980184940555, 0.0));
 
-  // decide_wavelength
-  assert_eq!(c2.decide_wavelength(-0.5), Wavelength::Red);
-  assert_eq!(c2.decide_wavelength(0.0), Wavelength::Red);
-  assert_eq!(c2.decide_wavelength(0.148), Wavelength::Red);
-  assert_eq!(c2.decide_wavelength(0.15), Wavelength::Green);
-  assert_eq!(c2.decide_wavelength(0.44), Wavelength::Green);
-  assert_eq!(c2.decide_wavelength(0.45), Wavelength::Blue);
-  assert_eq!(c2.decide_wavelength(1.1), Wavelength::Blue);
-  // wavelength
-  assert_eq!(c1.wavelength(Wavelength::Red)  , 0.4);
-  assert_eq!(c1.wavelength(Wavelength::Green), 0.78);
-  assert_eq!(c1.wavelength(Wavelength::Blue) , 1.5);
+    let c3 = Color::new_by_kelvin(6500.0);
+    assert_eq!(c3, Color(0.3359011141561401, 0.33472886389070683, 0.329370021953153));
+    let c3 = Color::new_by_kelvin2(6500.0);
+    assert_eq!(c3, Color(0.33663266161341554, 0.32787117091709067, 0.3354961674694938));
+    let c3 = Color::new_by_kelvin3(6500.0);
+    assert_eq!(c3, Color(0.33692722371967654, 0.3288409703504043, 0.33423180592991913));
 
-  // exp
-  let c4 = Color::WHITE;
-  assert_eq!(c4.exp(3.5), Color(1.0, 1.0, 1.0));
-  assert_eq!(c4.exp(0.0), Color(1.0, 1.0, 1.0));
-  let c4 = Color::BLACK;
-  assert_eq!(c4.exp(3.5), Color(0.0, 0.0, 0.0));
-  assert_eq!(c4.exp(0.0), Color(1.0, 1.0, 1.0));
-  let c4 = Color(0.3, 0.5, 0.2);
-  assert_eq!(c4.exp(3.5), Color(0.014788509052639483, 0.08838834764831845, 0.003577708763999664));
-  // is_lower
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.21, 0.31)) == true);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.21, 0.31)) == false);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.19, 0.31)) == false);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.21, 0.29)) == false);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.19, 0.31)) == false);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.19, 0.29)) == false);
-  assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.21, 0.29)) == false);
-  // blend
-  assert_eq!(Color::WHITE.blend(&Color::BLACK, 0.5), Color(0.5, 0.5, 0.5));
-  let cb1 = Color(0.5, 0.3, 1.0);
-  let cb2 = Color(0.8, 0.7, 0.3);
-  assert_eq!(cb1.blend(&cb2, 0.3), Color(0.5 * 0.7 + 0.8 * 0.3, 0.3 * 0.7 + 0.7 * 0.3, 1.0 * 0.7 + 0.3 * 0.3));
-  // approx_reflectance
-  let cos = f64::cos(PI / 3.0);
-  let c6 = Color::BLACK;
-  assert_eq!(c6.approx_reflectance(1.0), Color::BLACK); // 0
-  let r = 0.0 + (1.0 - 0.0) * (1.0 - cos).powf(5.0);
-  assert_eq!(c6.approx_reflectance(cos), Color(r, r, r)); // 45
-  assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
+    // decide_wavelength
+    assert_eq!(c2.decide_wavelength(-0.5), Wavelength::Red);
+    assert_eq!(c2.decide_wavelength(0.0), Wavelength::Red);
+    assert_eq!(c2.decide_wavelength(0.148), Wavelength::Red);
+    assert_eq!(c2.decide_wavelength(0.15), Wavelength::Green);
+    assert_eq!(c2.decide_wavelength(0.44), Wavelength::Green);
+    assert_eq!(c2.decide_wavelength(0.45), Wavelength::Blue);
+    assert_eq!(c2.decide_wavelength(1.1), Wavelength::Blue);
+    // wavelength
+    assert_eq!(c1.wavelength(Wavelength::Red)  , 0.4);
+    assert_eq!(c1.wavelength(Wavelength::Green), 0.78);
+    assert_eq!(c1.wavelength(Wavelength::Blue) , 1.5);
 
-  let c6 = Color::WHITE;
-  assert_eq!(c6.approx_reflectance(1.0), Color::WHITE); // 0
-  let r = 1.0 + (1.0 - 1.0) * (1.0 - cos).powf(5.0);
-  assert_eq!(c6.approx_reflectance(cos), Color(r, r, r)); // 45
-  assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
+    // exp
+    let c4 = Color::WHITE;
+    assert_eq!(c4.exp(3.5), Color(1.0, 1.0, 1.0));
+    assert_eq!(c4.exp(0.0), Color(1.0, 1.0, 1.0));
+    let c4 = Color::BLACK;
+    assert_eq!(c4.exp(3.5), Color(0.0, 0.0, 0.0));
+    assert_eq!(c4.exp(0.0), Color(1.0, 1.0, 1.0));
+    let c4 = Color(0.3, 0.5, 0.2);
+    assert_eq!(c4.exp(3.5), Color(0.014788509052639483, 0.08838834764831845, 0.003577708763999664));
+    // is_lower
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.21, 0.31)) == true);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.21, 0.31)) == false);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.19, 0.31)) == false);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.21, 0.29)) == false);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.19, 0.31)) == false);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.11, 0.19, 0.29)) == false);
+    assert!(Color(0.1, 0.2, 0.3).is_lower(&Color(0.09, 0.21, 0.29)) == false);
+    // blend
+    assert_eq!(Color::WHITE.blend(&Color::BLACK, 0.5), Color(0.5, 0.5, 0.5));
+    let cb1 = Color(0.5, 0.3, 1.0);
+    let cb2 = Color(0.8, 0.7, 0.3);
+    assert_eq!(cb1.blend(&cb2, 0.3), Color(0.5 * 0.7 + 0.8 * 0.3, 0.3 * 0.7 + 0.7 * 0.3, 1.0 * 0.7 + 0.3 * 0.3));
+    // approx_reflectance
+    let cos = f64::cos(PI / 3.0);
+    let c6 = Color::BLACK;
+    assert_eq!(c6.approx_reflectance(1.0), Color::BLACK); // 0
+    let r = 0.0 + (1.0 - 0.0) * (1.0 - cos).powf(5.0);
+    assert_eq!(c6.approx_reflectance(cos), Color(r, r, r)); // 45
+    assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
 
-  let c6 = Color(0.5, 0.4, 0.1);
-  assert_eq!(c6.approx_reflectance(1.0), c6); // 0
-  let rr = 0.5 + (1.0 - 0.5) * (1.0 - cos).powf(5.0);
-  let rg = 0.4 + (1.0 - 0.4) * (1.0 - cos).powf(5.0);
-  let rb = 0.1 + (1.0 - 0.1) * (1.0 - cos).powf(5.0);
-  assert_eq!(c6.approx_reflectance(cos), Color(rr, rg, rb)); // 45
-  assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
-  // relative_ior
-  assert_eq!(Color::_relative_ior(0.0, 0.0), 1.0);
-  assert_eq!(Color::_relative_ior(0.0, 1.0), 1.0);
-  assert_eq!(Color::_relative_ior(0.0, 5.0), 1.0);
+    let c6 = Color::WHITE;
+    assert_eq!(c6.approx_reflectance(1.0), Color::WHITE); // 0
+    let r = 1.0 + (1.0 - 1.0) * (1.0 - cos).powf(5.0);
+    assert_eq!(c6.approx_reflectance(cos), Color(r, r, r)); // 45
+    assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
 
-  assert_eq!(Color::_relative_ior(1.0, 1.0), 1.0);
-  assert_eq!(Color::_relative_ior(1.0, 1.5), 1.5);
-  assert_eq!(Color::_relative_ior(1.0, 5.0), 5.0);
-  assert_eq!(Color::_relative_ior(1.5, 1.0), 1.0 / 1.5);
-  assert_eq!(Color::_relative_ior(1.5, 1.5), 1.0);
-  assert_eq!(Color::_relative_ior(1.5, 5.0), 5.0 / 1.5);
+    let c6 = Color(0.5, 0.4, 0.1);
+    assert_eq!(c6.approx_reflectance(1.0), c6); // 0
+    let rr = 0.5 + (1.0 - 0.5) * (1.0 - cos).powf(5.0);
+    let rg = 0.4 + (1.0 - 0.4) * (1.0 - cos).powf(5.0);
+    let rb = 0.1 + (1.0 - 0.1) * (1.0 - cos).powf(5.0);
+    assert_eq!(c6.approx_reflectance(cos), Color(rr, rg, rb)); // 45
+    assert_eq!(c6.approx_reflectance(0.0), Color::WHITE); // 90
+    // relative_ior
+    assert_eq!(Color::_relative_ior(0.0, 0.0), 1.0);
+    assert_eq!(Color::_relative_ior(0.0, 1.0), 1.0);
+    assert_eq!(Color::_relative_ior(0.0, 5.0), 1.0);
 
-  // Display
-  let c7 = Color(0.8, 0.2, 0.65);
-  assert_eq!(format!("{}", c7), "COL[0.8,0.2,0.65]");
-  // FromStr
-  let c8 = Color::from_str("COL[0.4,0.5,0.1]");
-  assert_eq!(c8.unwrap(), Color(0.4, 0.5, 0.1));
-  let c8 = Color::from_str("COL[0.8,1.0,0.2]");
-  assert_eq!(c8.unwrap(), Color(0.8, 1.0, 0.2));
-  let c8 = Color::from_str("COL[0.8,1.0,0.2]");
-  let c81 = Color::from_str(&format!("{}", c8.unwrap()));
-  assert_eq!(c81.unwrap(), Color(0.8, 1.0, 0.2));
+    assert_eq!(Color::_relative_ior(1.0, 1.0), 1.0);
+    assert_eq!(Color::_relative_ior(1.0, 1.5), 1.5);
+    assert_eq!(Color::_relative_ior(1.0, 5.0), 5.0);
+    assert_eq!(Color::_relative_ior(1.5, 1.0), 1.0 / 1.5);
+    assert_eq!(Color::_relative_ior(1.5, 1.5), 1.0);
+    assert_eq!(Color::_relative_ior(1.5, 5.0), 5.0 / 1.5);
+  }
 
+  #[test]
+  fn test_show() {
+    // Display
+    let c7 = Color(0.8, 0.2, 0.65);
+    assert_eq!(format!("{}", c7), "COL[0.8,0.2,0.65]");
+    // FromStr
+    let c8 = Color::from_str("COL[0.4,0.5,0.1]");
+    assert_eq!(c8.unwrap(), Color(0.4, 0.5, 0.1));
+    let c8 = Color::from_str("COL[0.8,1.0,0.2]");
+    assert_eq!(c8.unwrap(), Color(0.8, 1.0, 0.2));
+    let c8 = Color::from_str("COL[0.8,1.0,0.2]");
+    let c81 = Color::from_str(&format!("{}", c8.unwrap()));
+    assert_eq!(c81.unwrap(), Color(0.8, 1.0, 0.2));
+  }
 
-  // operators
-  let c4 = Color(0.8, 0.5, 0.3);
-  let c5 = Color(0.2, 0.3, 0.8);
-  // neg
-  let c41 = -c4;
-  assert!((c41.0 - (1.0 - c4.0)).abs() < 0.00001);
-  assert!((c41.1 - (1.0 - c4.1)).abs() < 0.00001);
-  assert!((c41.2 - (1.0 - c4.2)).abs() < 0.00001);
-  // add
-  assert_eq!(c4 + c5, Color(0.8 + 0.2, 0.5 + 0.3, 0.3 + 0.8));
-  // sub
-  assert_eq!(c4 - c5, Color(0.8 - 0.2, 0.5 - 0.3, 0.3 - 0.8));
-  // mul (Color x Flt)
-  assert_eq!(c5 * 2.0, Color(0.2 * 2.0, 0.3 * 2.0, 0.8 * 2.0));
-  // mul (Flt x Color)
-  assert_eq!(2.0 * c5, Color(0.2 * 2.0, 0.3 * 2.0, 0.8 * 2.0));
-  // mul (Color x Color)
-  assert_eq!(c4 * c5, Color(0.8 * 0.2, 0.5 * 0.3, 0.3 * 0.8));
-
+  #[test]
+  fn test_calc() {
+    // operators
+    let c4 = Color(0.8, 0.5, 0.3);
+    let c5 = Color(0.2, 0.3, 0.8);
+    // neg
+    let c41 = -c4;
+    assert!((c41.0 - (1.0 - c4.0)).abs() < 0.00001);
+    assert!((c41.1 - (1.0 - c4.1)).abs() < 0.00001);
+    assert!((c41.2 - (1.0 - c4.2)).abs() < 0.00001);
+    // add
+    assert_eq!(c4 + c5, Color(0.8 + 0.2, 0.5 + 0.3, 0.3 + 0.8));
+    // sub
+    assert_eq!(c4 - c5, Color(0.8 - 0.2, 0.5 - 0.3, 0.3 - 0.8));
+    // mul (Color x Flt)
+    assert_eq!(c5 * 2.0, Color(0.2 * 2.0, 0.3 * 2.0, 0.8 * 2.0));
+    // mul (Flt x Color)
+    assert_eq!(2.0 * c5, Color(0.2 * 2.0, 0.3 * 2.0, 0.8 * 2.0));
+    // mul (Color x Color)
+    assert_eq!(c4 * c5, Color(0.8 * 0.2, 0.5 * 0.3, 0.3 * 0.8));
+  }
+  
 }
 
 // Radiance ----------------------------
@@ -789,43 +805,54 @@ impl BasicMatrix for Radiance {
   }
 }
 
-#[test]
-fn test_radiance() {
-  // consts
-  assert_eq!(Radiance::ZERO, Radiance(0.0, 0.0, 0.0));
-  assert_eq!(Radiance::ONE , Radiance(1.0, 1.0, 1.0));
-  // from_color
-  let col = Color(0.3, 0.5, 0.2);
-  assert_eq!(Radiance::from_color(&col, 0.1), Radiance(0.3 * 0.1, 0.5 * 0.1, 0.2 * 0.1));
-  // rabs
-  let r1 = Radiance(-1.5, 2.3, 0.9);
-  assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
-  let r1 = Radiance(1.5, -2.3, 0.9);
-  assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
-  let r1 = Radiance(1.5, 2.3, -0.9);
-  assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
-  // elems
-  assert_eq!(r1.r(), 1.5);
-  assert_eq!(r1.g(), 2.3);
-  assert_eq!(r1.b(), -0.9);
+#[cfg(test)]
+mod tests_radiance {
+  use super::*;
 
-  // add
-  let r2 = Radiance(5.2, -3.8, 9.5);
-  assert_eq!(r1 + r2, Radiance(1.5 + 5.2, 2.3 + (-3.8), -0.9 + 9.5));
-  // sub
-  assert_eq!(r1 - r2, Radiance(1.5 - 5.2, 2.3 - (-3.8), -0.9 - 9.5));
-  // mul
-  assert_eq!(1.3 * r1, Radiance(1.3 * 1.5, 1.3 * 2.3, 1.3 * -0.9));
-  let c1 = Color(0.2, 0.5, 0.3);
-  assert_eq!(c1 * r1, Radiance(0.2 * 1.5, 0.5 * 2.3, 0.3 * -0.9));
+  #[test]
+  fn test_self() {
+    // consts
+    assert_eq!(Radiance::ZERO, Radiance(0.0, 0.0, 0.0));
+    assert_eq!(Radiance::ONE , Radiance(1.0, 1.0, 1.0));
+    // from_color
+    let col = Color(0.3, 0.5, 0.2);
+    assert_eq!(Radiance::from_color(&col, 0.1), Radiance(0.3 * 0.1, 0.5 * 0.1, 0.2 * 0.1));
+    // rabs
+    let r1 = Radiance(-1.5, 2.3, 0.9);
+    assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
+    let r1 = Radiance(1.5, -2.3, 0.9);
+    assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
+    let r1 = Radiance(1.5, 2.3, -0.9);
+    assert_eq!(r1.rabs(), Radiance(1.5, 2.3, 0.9));
+    // elems
+    assert_eq!(r1.r(), 1.5);
+    assert_eq!(r1.g(), 2.3);
+    assert_eq!(r1.b(), -0.9);
+  }
 
-  // norm
-  assert_eq!(r1.norm(), 1.5 + 2.3 + 0.9);
-  assert_eq!(r2.norm(), 5.2 + 3.8 + 9.5);
+  #[test]
+  fn test_calc() {
+    let r1 = Radiance(1.5, 2.3, -0.9);
+    let r2 = Radiance(5.2, -3.8, 9.5);
+    // add
+    assert_eq!(r1 + r2, Radiance(1.5 + 5.2, 2.3 + (-3.8), -0.9 + 9.5));
+    // sub
+    assert_eq!(r1 - r2, Radiance(1.5 - 5.2, 2.3 - (-3.8), -0.9 - 9.5));
+    // mul
+    assert_eq!(1.3 * r1, Radiance(1.3 * 1.5, 1.3 * 2.3, 1.3 * -0.9));
+    let c1 = Color(0.2, 0.5, 0.3);
+    assert_eq!(c1 * r1, Radiance(0.2 * 1.5, 0.5 * 2.3, 0.3 * -0.9));
+  }
 
-
+  #[test]
+  fn test_matrix() {
+    let r1 = Radiance(1.5, 2.3, -0.9);
+    let r2 = Radiance(5.2, -3.8, 9.5);
+    // norm
+    assert_eq!(r1.norm(), 1.5 + 2.3 + 0.9);
+    assert_eq!(r2.norm(), 5.2 + 3.8 + 9.5);
+  }
 }
-
 
 // PhotonFilter ------------------------
 
@@ -913,57 +940,62 @@ impl KdPoint for Photon {
   }
 }
 
-#[test]
-fn test_photon() {
-  // new
-  let p0 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::O, &Vector3::EY).unwrap());
-  assert_eq!(p0.wl(), Wavelength::Red);
-  assert_eq!(p0.ray().pos, Vector3::O);
-  assert_eq!(p0.ray().dir, Vector3::EY);
-  let p1 = Photon::dummy(&Vector3::new(1.5, 0.4, -2.5));
-  assert_eq!(p1.wl(), Wavelength::Red);
-  assert_eq!(p1.ray().pos, Vector3::new(1.5, 0.4, -2.5));
-  assert_eq!(p1.ray().dir, Vector3::EX);
-  assert_eq!(p1.ray().pos, p1.pos());
-  assert_eq!(p1.ray().dir, p1.dir());
-  // squared_distance
-  let p2 = Photon::dummy(&Vector3::new(1.6, 0.5, -2.6));
-  assert!(p1.squared_distance(&p2) - (0.1 * 0.1 + 0.1 * 0.1 + 0.1 * 0.1) < NEARLY0);
-  // to_radiance
-  let nvec = Vector3::EY;
-  let ppos = Vector3::O;
-  let mut pdir = -Vector3::EY; // 真上から下への光子
-  let mut p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
-  assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.1, 0.0, 0.0));
-  p3 = Photon::new(Wavelength::Green, &Ray::new(&ppos, &pdir).unwrap());
-  assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.0, 0.1, 0.0));
-  p3 = Photon::new(Wavelength::Blue, &Ray::new(&ppos, &pdir).unwrap());
-  assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.0, 0.0, 0.1));
-  pdir = Vector3::EY;
-  p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
-  assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance::ZERO);
-  pdir = Vector3::new(1.0, -1.0, 1.0).normalize().unwrap();
-  p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
-  assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.1, 0.0, 0.0));
+#[cfg(test)]
+mod tests_photon {
+  use super::*;
+  use kd_tree::{KdTree};
 
-  /* Test for kd-tree (KdTree)
-   */
-  let dir = Vector3::new(1.0, -1.0, 0.0);
-  let p4 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::new(0.0, 1.0, 0.0), &dir).unwrap());
-  let p5 = Photon::new(Wavelength::Green, &Ray::new(&Vector3::new(0.0, 1.0, 0.3), &dir).unwrap());
-  let p6 = Photon::new(Wavelength::Blue, &Ray::new(&Vector3::new(0.0, 1.5, 0.5), &dir).unwrap());
-  let p7 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::new(0.0, 1.0, 1.0), &dir).unwrap());
-  let tree: KdTree<Photon> = KdTree::build_by_ordered_float(vec![p4, p5, p6, p7]);
-  let v1 = Vector3::new(0.0, 1.0, 0.0);
-  let p8 = Photon::new(Wavelength::Blue, &Ray::new(&v1, &Vector3::EY).unwrap());
-  assert_eq!(tree.within_radius(&p8, 0.0), Vec::<&Photon>::new());
-  assert_eq!(tree.within_radius(&p8, 0.2), vec![&p4]);
-  assert_eq!(tree.within_radius(&p8, 0.5), vec![&p4, &p5]);
-  assert_eq!(tree.within_radius(&p8, 0.8), vec![&p6, &p4, &p5]);
-  assert_eq!(tree.within_radius(&p8, 1.1), vec![&p6, &p4, &p5, &p7]);
+  #[test]
+  fn test_photon() {
+    // new
+    let p0 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::O, &Vector3::EY).unwrap());
+    assert_eq!(p0.wl(), Wavelength::Red);
+    assert_eq!(p0.ray().pos, Vector3::O);
+    assert_eq!(p0.ray().dir, Vector3::EY);
+    let p1 = Photon::dummy(&Vector3::new(1.5, 0.4, -2.5));
+    assert_eq!(p1.wl(), Wavelength::Red);
+    assert_eq!(p1.ray().pos, Vector3::new(1.5, 0.4, -2.5));
+    assert_eq!(p1.ray().dir, Vector3::EX);
+    assert_eq!(p1.ray().pos, p1.pos());
+    assert_eq!(p1.ray().dir, p1.dir());
+    // squared_distance
+    let p2 = Photon::dummy(&Vector3::new(1.6, 0.5, -2.6));
+    assert!(p1.squared_distance(&p2) - (0.1 * 0.1 + 0.1 * 0.1 + 0.1 * 0.1) < NEARLY0);
+    // to_radiance
+    let nvec = Vector3::EY;
+    let ppos = Vector3::O;
+    let mut pdir = -Vector3::EY; // 真上から下への光子
+    let mut p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
+    assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.1, 0.0, 0.0));
+    p3 = Photon::new(Wavelength::Green, &Ray::new(&ppos, &pdir).unwrap());
+    assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.0, 0.1, 0.0));
+    p3 = Photon::new(Wavelength::Blue, &Ray::new(&ppos, &pdir).unwrap());
+    assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.0, 0.0, 0.1));
+    pdir = Vector3::EY;
+    p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
+    assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance::ZERO);
+    pdir = Vector3::new(1.0, -1.0, 1.0).normalize().unwrap();
+    p3 = Photon::new(Wavelength::Red, &Ray::new(&ppos, &pdir).unwrap());
+    assert_eq!(p3.to_radiance(&nvec, 0.1), Radiance(0.1, 0.0, 0.0));
 
+    /* Test for kd-tree (KdTree)
+    */
+    let dir = Vector3::new(1.0, -1.0, 0.0);
+    let p4 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::new(0.0, 1.0, 0.0), &dir).unwrap());
+    let p5 = Photon::new(Wavelength::Green, &Ray::new(&Vector3::new(0.0, 1.0, 0.3), &dir).unwrap());
+    let p6 = Photon::new(Wavelength::Blue, &Ray::new(&Vector3::new(0.0, 1.5, 0.5), &dir).unwrap());
+    let p7 = Photon::new(Wavelength::Red, &Ray::new(&Vector3::new(0.0, 1.0, 1.0), &dir).unwrap());
+    let tree: KdTree<Photon> = KdTree::build_by_ordered_float(vec![p4, p5, p6, p7]);
+    let v1 = Vector3::new(0.0, 1.0, 0.0);
+    let p8 = Photon::new(Wavelength::Blue, &Ray::new(&v1, &Vector3::EY).unwrap());
+    assert_eq!(tree.within_radius(&p8, 0.0), Vec::<&Photon>::new());
+    assert_eq!(tree.within_radius(&p8, 0.2), vec![&p4]);
+    assert_eq!(tree.within_radius(&p8, 0.5), vec![&p4, &p5]);
+    assert_eq!(tree.within_radius(&p8, 0.8), vec![&p6, &p4, &p5]);
+    assert_eq!(tree.within_radius(&p8, 1.1), vec![&p6, &p4, &p5, &p7]);
+
+  }
 }
-
 
 // SUPPORT FUNCS FOR OPTICS ------------------------
 

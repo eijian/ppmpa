@@ -265,7 +265,7 @@ mod tests_vector3 {
   /* Test for Vector3
   */
   #[test]
-  fn test_vector3() {
+  fn test_self() {
     // O
     assert_eq!(Vector3::O.x, 0.0);
     assert_eq!(Vector3::O.y, 0.0);
@@ -430,11 +430,11 @@ impl Position3 {
 }
 
 #[cfg(test)]
-mod test_position {
+mod tests_position {
   use super::*;
 
   #[test]
-  fn test_position3() {
+  fn test_self() {
     // init_pos
     let p1 = Position3::init_pos(2.1, 4.3, -5.2);
     assert_eq!(p1, Vector3::new(2.1, 4.3, -5.2));
@@ -470,7 +470,7 @@ mod tests_direction {
   use crate::ray::{PI_2ND};
 
   #[test]
-  fn test_direction3() {
+  fn test_self() {
     // init_dir
     let d1 = Direction3::init_dir(2.1, 4.3, -5.2);
     let d1len = f64::sqrt(2.1 * 2.1 + 4.3 * 4.3 + (-5.2) * (-5.2));
@@ -591,11 +591,11 @@ impl Vector for Vector2 {
 }
 
 #[cfg(test)]
-mod test_vector2 {
+mod tests_vector2 {
   use super::*;
 
   #[test]
-  fn test_vector2() {
+  fn test_self() {
     // O
     assert_eq!(Vector2::O.x, 0.0);
     assert_eq!(Vector2::O.y, 0.0);
@@ -738,11 +738,11 @@ impl FromStr for Ray {
 pub type SurfacePoint = Ray;
 
 #[cfg(test)]
-mod test_ray {
+mod tests_ray {
   use super::*;
 
   #[test]
-  fn test_ray() {
+  fn test_self() {
     let p1 = Position3::init_pos(1.0, 2.0, 3.0);
     let d1 = Direction3::init_dir(1.0, 1.0, 1.0);
     let r1 = Ray::new(&p1, &(d1.unwrap())).unwrap();

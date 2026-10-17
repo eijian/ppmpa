@@ -1,12 +1,11 @@
 // Object module
 
-use super::{Flt, PI4};
-use super::algebra::{Direction3, Ray, SurfacePoint, Vector, Vector3};
+use super::{Flt};
+use super::algebra::{Direction3, SurfacePoint};
 use super::geometry::{ShapeFunc, Shape};
-use super::light::{InOut, LightSpec, RadEstimation, Radiosity};
-use super::material::{Material};
-use super::surface::{Mapping, Surface};
-use super::optics::{Color, Photon, Radiance};
+use super::light::{LightSpec, RadEstimation};
+use super::surface::{Surface};
+use super::optics::{Photon, Radiance};
 
 
 // Object --------------
@@ -73,42 +72,53 @@ impl<'a> Object<'a> {
 
 }
 
-#[test]
-fn test_object() {
-  // new, is_light
-  let sp = Shape::new_sphere(&Vector3::O, 0.5);
-  let col = Color::new_by_kelvin(5000.0);
-  let ls = LightSpec::new(&col, 1500.0, 0.0, RadEstimation::Photon, InOut::Out);
-  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
-                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
-  let mt1 = Mapping::new_solid(&m1);
-  let sf1 = Surface::new(0.0, mt1);
-  let ob1 = Object::new(&sp, &sf1, &Some(ls));
+#[cfg(test)]
+mod tests_object {
+  use super::*;
 
-  assert_eq!(ob1.light, Some(ls));
-  let ob2 = Object::new(&sp, &sf1, &None);
-  assert_eq!(ob2.light, None);
+  use crate::ray::{PI4};
+  use crate::ray::algebra::{Ray, Vector, Vector3};
+  use crate::ray::light::{InOut};
+  use crate::ray::material::{Material};
+  use crate::ray::optics::{Color};
+  use crate::ray::surface::{Mapping, Surface};
+  
+  #[test]
+  fn test_self() {
+    // new, is_light
+    let sp = Shape::new_sphere(&Vector3::O, 0.5);
+    let col = Color::new_by_kelvin(5000.0);
+    let ls = LightSpec::new(&col, 1500.0, 0.0, RadEstimation::Photon, InOut::Out);
+    let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+    let mt1 = Mapping::new_solid(&m1);
+    let sf1 = Surface::new(0.0, mt1);
+    let ob1 = Object::new(&sp, &sf1, &Some(ls));
 
-  // emittance
-  let sp = Ray::new(&Vector3::O, &Vector3::EY).unwrap();
-  let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
-  assert_eq!(ob1.emittance(&sp, &(-Vector3::EY)), ls.emittance(&sp, &(-Vector3::EY)));
-  assert_eq!(ob1.emittance(&sp, &vvec), ls.emittance(&sp, &vvec));
-  assert_eq!(ob2.emittance(&sp, &vvec), Radiance::ZERO);
+    assert_eq!(ob1.light, Some(ls));
+    let ob2 = Object::new(&sp, &sf1, &None);
+    assert_eq!(ob2.light, None);
 
-  // flux
-  assert_eq!(ob1.light.unwrap().radiosity(), 2.1961932650073206);  // [W]
-  let fl = 2.1961932650073206 * PI4 * 0.5 * 0.5;
-  assert_eq!(fl, 6.89954462721038);
-  assert_eq!(ob1.flux(), fl);
-  assert_eq!(ob2.flux(), 0.0);
+    // emittance
+    let sp = Ray::new(&Vector3::O, &Vector3::EY).unwrap();
+    let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
+    assert_eq!(ob1.emittance(&sp, &(-Vector3::EY)), ls.emittance(&sp, &(-Vector3::EY)));
+    assert_eq!(ob1.emittance(&sp, &vvec), ls.emittance(&sp, &vvec));
+    assert_eq!(ob2.emittance(&sp, &vvec), Radiance::ZERO);
 
-  // emit_photons
-  let ps = ob1.emit_photons(0.6899);
-  assert_eq!(ps.len(), 10);
+    // flux
+    assert_eq!(ob1.light.unwrap().radiosity(), 2.1961932650073206);  // [W]
+    let fl = 2.1961932650073206 * PI4 * 0.5 * 0.5;
+    assert_eq!(fl, 6.89954462721038);
+    assert_eq!(ob1.flux(), fl);
+    assert_eq!(ob2.flux(), 0.0);
 
+    // emit_photons
+    let ps = ob1.emit_photons(0.6899);
+    assert_eq!(ps.len(), 10);
+
+  }
 }
-
 
 
 // SUPPORT FUNCS

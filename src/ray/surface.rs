@@ -6,10 +6,11 @@
 use std::fmt;
 //use rand::Rng;
 
-use super::{Flt, NEARLY0, PI};
-use super::algebra::{Direction3, SurfacePoint, Vector, Vector2, Vector3, blurred_vector};
+use super::{Flt, PI};
+
+
+use super::algebra::{Direction3, SurfacePoint, Vector, Vector2, blurred_vector};
 use super::material::{Material};
-use super::optics::{Color};
 use super::utils::{density_power, russian_roulette_binary};
 
 // Mapping ---------------
@@ -27,7 +28,7 @@ pub enum Mapping<'a> {
 
 impl<'a> Mapping<'a> {
   #[inline(always)]
-  pub fn new_solid(mate: &Material) -> Mapping {
+  pub fn new_solid(mate: &Material) -> Mapping<'_> {
     Mapping::Solid {mate}
   }
 
@@ -62,30 +63,45 @@ impl<'a> fmt::Display for Mapping<'a> {
   }
 }
 
-#[test]
-fn test_mapping() {
-  // new
-  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
-                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
-  let mp1 = Mapping::new_solid(&m1);
-  let sp1 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
-  let uv = Vector2::O;
-  assert_eq!(*mp1.material(&sp1, &uv), m1);
-  let m2 = Material::new(&Color::WHITE, &Color::BLACK,
-                                   &Color::WHITE, &Color::BLACK, 0.0, 0.0);
-  let sp2 = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
-  let mp2 = Mapping::new_checker(&m1, &m2, 1.0);
-  assert_eq!(*mp2.material(&sp1, &uv), m1);
-  assert_eq!(*mp2.material(&sp2, &uv), m2);
-  let sp3 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 1.5), &Vector3::EY).unwrap();
-  assert_eq!(*mp2.material(&sp3, &uv), m2);
-  
-  // fmt
-  assert_eq!(format!("{}", mp1), "SOLID[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000]]");
-  assert_eq!(format!("{}", mp2), "CHECKER[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000],MATERIAL[COL[1,1,1],COL[0,0,0],COL[0,0,0],COL[1,1,1],0.000,0.000],1.000]");
+#[cfg(test)]
+mod tests_mapping {
+  use super::*;
+  use crate::ray::algebra::{Vector3};
+  use crate::ray::optics::{Color};
 
+  #[test]
+  fn test_self() {
+    // new
+    let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+    let mp1 = Mapping::new_solid(&m1);
+    let sp1 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
+    let uv = Vector2::O;
+    assert_eq!(*mp1.material(&sp1, &uv), m1);
+    let m2 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color::WHITE, &Color::BLACK, 0.0, 0.0);
+    let sp2 = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
+    let mp2 = Mapping::new_checker(&m1, &m2, 1.0);
+    assert_eq!(*mp2.material(&sp1, &uv), m1);
+    assert_eq!(*mp2.material(&sp2, &uv), m2);
+    let sp3 = SurfacePoint::new(&Vector3::new(0.5, 0.0, 1.5), &Vector3::EY).unwrap();
+    assert_eq!(*mp2.material(&sp3, &uv), m2);
+  }
+
+  #[test]
+  fn test_show() {
+    // fmt
+    let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+    let mp1 = Mapping::new_solid(&m1);
+    let m2 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color::WHITE, &Color::BLACK, 0.0, 0.0);
+    let mp2 = Mapping::new_checker(&m1, &m2, 1.0);
+
+    assert_eq!(format!("{}", mp1), "SOLID[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000]]");
+    assert_eq!(format!("{}", mp2), "CHECKER[MATERIAL[COL[1,1,1],COL[0.9707215450015482,0.7738380932038346,0.41075880256299324],COL[0,0,0],COL[0.13,0.45,1.43],0.000,1.000],MATERIAL[COL[1,1,1],COL[0,0,0],COL[0,0,0],COL[1,1,1],0.000,0.000],1.000]");
+  }
 }
-
 
 // Surface --------------------------------
 /*
@@ -158,46 +174,62 @@ impl<'a> Surface<'a> {
 
 impl<'a> fmt::Display for Surface<'a> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "Surface ({}, {})", self.roughness, self.power)
+    write!(f, "SURFACE ({}, {})", self.roughness, self.power)
   }
 }
 
 
-#[test]
-fn test_surface() {
-  // new
-  let m1 = Material::new(&Color::WHITE, &Color::BLACK,
-                                   &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
-  let mt1 = Mapping::new_solid(&m1);
-  let sf1 = Surface::new(0.0, mt1);
-  assert_eq!(sf1.roughness, 0.0);
-  assert!(sf1.power < NEARLY0);
-  assert_eq!(sf1.alpha, 0.0);
+#[cfg(test)]
+mod tests_surface {
+  use super::*;
+  use crate::ray::{NEARLY0};
+  use crate::ray::algebra::{Vector3};
+  use crate::ray::optics::{Color};
 
-  // microfacet_normal
-  assert_eq!(sf1.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0), Some(Vector3::EY));
-  let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
-  assert_eq!(sf1.microfacet_normal(&Vector3::EY, &vvec, 1.0), Some(Vector3::EY));
-  let m2 = Material::new(&Color::WHITE, &Color::BLACK,
-                                   &Color::WHITE, &Color::BLACK, 1.0, 0.0);
-  let mt2 = Mapping::new_checker(&m1, &m2, 1.0);
-  let sf2 = Surface::new( 0.5, mt2);
-  assert_eq!(sf2.roughness, 0.5);
-  assert!(sf2.power - 0.0011 < NEARLY0);
-  assert_eq!(sf2.alpha, (0.5_f64).powf(4.0));
-  let rvec = sf2.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0);
-  match rvec {
-    Some(rv) => assert!(rv.dot(&Vector3::EY) >= 0.0),
-    None => assert!(false),
+  #[test]
+  fn test_self() {
+    // new
+    let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+    let mt1 = Mapping::new_solid(&m1);
+    let sf1 = Surface::new(0.0, mt1);
+    assert_eq!(sf1.roughness, 0.0);
+    assert!(sf1.power < NEARLY0);
+    assert_eq!(sf1.alpha, 0.0);
+
+    // microfacet_normal
+    assert_eq!(sf1.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0), Some(Vector3::EY));
+    let vvec = Vector3::new(1.0, -1.0, 0.0).normalize().unwrap();
+    assert_eq!(sf1.microfacet_normal(&Vector3::EY, &vvec, 1.0), Some(Vector3::EY));
+    let m2 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color::WHITE, &Color::BLACK, 1.0, 0.0);
+    let mt2 = Mapping::new_checker(&m1, &m2, 1.0);
+    let sf2 = Surface::new( 0.5, mt2);
+    assert_eq!(sf2.roughness, 0.5);
+    assert!(sf2.power - 0.0011 < NEARLY0);
+    assert_eq!(sf2.alpha, (0.5_f64).powf(4.0));
+    let rvec = sf2.microfacet_normal(&Vector3::EY, &(-Vector3::EY), 1.0);
+    match rvec {
+      Some(rv) => assert!(rv.dot(&Vector3::EY) >= 0.0),
+      None => assert!(false),
+    }
+
+    // material
+    let mut sp = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
+    assert_eq!(*sf1.material(&sp, &Vector2::O), m1);
+    assert_eq!(*sf2.material(&sp, &Vector2::O), m1);
+    sp = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
+    assert_eq!(*sf2.material(&sp, &Vector2::O), m2);
+
   }
 
-  // material
-  let mut sp = SurfacePoint::new(&Vector3::new(0.5, 0.0, 0.5), &Vector3::EY).unwrap();
-  assert_eq!(*sf1.material(&sp, &Vector2::O), m1);
-  assert_eq!(*sf2.material(&sp, &Vector2::O), m1);
-  sp = SurfacePoint::new(&Vector3::new(1.5, 0.0, 0.5), &Vector3::EY).unwrap();
-  assert_eq!(*sf2.material(&sp, &Vector2::O), m2);
+  #[test]
+  fn test_show() {
+    let m1 = Material::new(&Color::WHITE, &Color::BLACK,
+                                    &Color(0.13, 0.45, 1.43), &Color(4.06, 2.42, 1.95), 0.0, 1.0);
+    let mt1 = Mapping::new_solid(&m1);
+    let sf1 = Surface::new(0.0, mt1);
+    assert_eq!(format!("{}", sf1), "SURFACE (0, 0.00000000009999999999)");
+  }
 
 }
-
-
